@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>My Music</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #0a0a0f;
+    color: #fff;
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  .header {
+    background: #12121a;
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border-bottom: 1px solid #1f1f2e;
+    flex-shrink: 0;
+  }
+  .logo {
+    font-size: 18px;
+    font-weight: 800;
+    background: linear-gradient(135deg, #7c5cff, #5c9cff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    letter-spacing: -0.5px;
+  }
+  .tabs {
+    display: flex;
+    background: #12121a;
+    border-bottom: 1px solid #1f1f2e;
+    flex-shrink: 0;
+  }
+  .tab {
+    flex: 1;
+    padding: 12px;
+    text-align: center;
+    color: #888;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+  }
+  .tab.active {
+    color: #fff;
+    border-bottom-color: #7c5cff;
+  }
+  .content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    padding-bottom: 100px;
+  }
+  .page { display: none; }
+  .page.active { display: block; }
+  .search-box {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .search-input {
+    flex: 1;
+    background: #1a1a26;
+    border: 1px solid #2a2a3e;
+    border-radius: 10px;
+    padding: 12px 16px;
+    color: #fff;
+    font-size: 15px;
+    outline: none;
+  }
+  .search-input:focus { border-color: #7c5cff; }
+  .search-input::placeholder { color: #555; }
+  .result-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background 0.2s;
+    margin-bottom: 4px;
+  }
+  .result-item:hover { background: #1a1a26; }
+  .result-thumb-wrap {
+    position: relative;
+    flex-shrink: 0;
+  }
+  .result-thumb {
+    width: 56px;
+    height: 56px;
+    border-radius: 8px;
+    background: #2a2a3e;
+    object-fit: cover;
+    display: block;
+  }
+  .source-badge {
+    position: absolute;
+    bottom: -4px;
+    right: -4px;
+    font-size: 9px;
+    font-weight: 800;
+    padding: 2px 5px;
+    border-radius: 4px;
+    color: #fff;
+    letter-spacing: 0.3px;
+    border: 2px solid #12121a;
+  }
+  .source-badge.yt { background: #ff0000; }
+  .source-badge.sc { background: #ff5500; }
+  .source-badge.jm { background: #00a86b; }
+  .result-info { flex: 1; min-width: 0; }
+  .result-title {
+    font-size: 14px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 4px;
+  }
+  .result-author {
+    font-size: 12px;
+    color: #888;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .result-add {
+    background: #7c5cff;
+    border: none;
+    color: #fff;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    font-size: 20px;
+    cursor: pointer;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 300;
+  }
+  .result-add:hover { background: #6a4aef; }
+  .empty {
+    text-align: center;
+    color: #555;
+    padding: 60px 20px;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+  .loading {
+    text-align: center;
+    color: #7c5cff;
+    padding: 20px;
+    font-size: 14px;
+  }
+  .error {
+    text-align: center;
+    color: #ff5555;
+    padding: 20px;
+    font-size: 14px;
+  }
+  .player {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: #12121a;
+    border-top: 1px solid #1f1f2e;
+    padding: 10px 16px;
+    transform: translateY(100%);
+    transition: transform 0.3s;
+    z-index: 100;
+  }
+  .player.active { transform: translateY(0); }
+  .player-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+  }
+  .player-thumb {
+    width: 44px;
+    height: 44px;
+    border-radius: 6px;
+    background: #2a2a3e;
+    object-fit: cover;
+  }
+  .player-text { flex: 1; min-width: 0; }
+  .player-title {
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .player-author {
+    font-size: 11px;
+    color: #888;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .player-close {
+    background: none;
+    border: none;
+    color: #888;
+    font-size: 24px;
+    cursor: pointer;
+    padding: 0 4px;
+  }
+  .player-controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 24px;
+  }
+  .player-btn {
+    background: none;
+    border: none;
+    color: #fff;
+    font-size: 24px;
+    cursor: pointer;
+    padding: 4px;
+  }
+  .player-btn.play {
+    background: #7c5cff;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    font-size: 20px;
+  }
+  #ytFrame, #scFrame {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+    bottom: 0;
+    left: 0;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo">My Music</div>
+</div>
+
+<div class="tabs">
+  <div class="tab active" data-tab="search">Поиск</div>
+  <div class="tab" data-tab="my">Моя музыка</div>
+</div>
+
+<div class="content">
+  <div class="page active" id="page-search">
+    <div class="search-box">
+      <input type="text" class="search-input" id="searchInput" placeholder="Название песни или исполнитель...">
+    </div>
+    <div id="results">
+      <div class="empty">Введи название песни и нажми Enter</div>
+    </div>
+  </div>
+
+  <div class="page" id="page-my">
+    <div id="myList">
+      <div class="empty">Пока пусто.<br>Найди песню и добавь сюда.</div>
+    </div>
+  </div>
+</div>
+
+<div class="player" id="player">
+  <div class="player-info">
+    <img class="player-thumb" id="playerThumb" src="" alt="">
+    <div class="player-text">
+      <div class="player-title" id="playerTitle">—</div>
+      <div class="player-author" id="playerAuthor">—</div>
+    </div>
+    <button class="player-close" id="playerClose">×</button>
+  </div>
+  <div class="player-controls">
+    <button class="player-btn" id="prevBtn">⏮</button>
+    <button class="player-btn play" id="playBtn">▶</button>
+    <button class="player-btn" id="nextBtn">⏭</button>
+  </div>
+</div>
+
+<iframe id="ytFrame" allow="autoplay"></iframe>
+<iframe id="scFrame" allow="autoplay"></iframe>
+
+<script>
+const PROXY = 'https://mymusic.95wr5n8mg8.workers.dev/?url=';
+
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('page-' + tab.dataset.tab).classList.add('active');
+  });
+});
+
+let myMusic = JSON.parse(localStorage.getItem('myMusic') || '[]');
+
+function saveMyMusic() {
+  localStorage.setItem('myMusic', JSON.stringify(myMusic));
+}
+
+function renderMyMusic() {
+  const list = document.getElementById('myList');
+  if (myMusic.length === 0) {
+    list.innerHTML = '<div class="empty">Пока пусто.<br>Найди песню и добавь сюда.</div>';
+    return;
+  }
+  list.innerHTML = myMusic.map((t, i) => `
+    <div class="result-item" onclick="playTrack(${i})">
+      <div class="result-thumb-wrap">
+        <img class="result-thumb" src="${t.thumb}" alt="">
+        <span class="source-badge ${t.source}">${t.source.toUpperCase()}</span>
+      </div>
+      <div class="result-info">
+        <div class="result-title">${t.title}</div>
+        <div class="result-author">${t.author}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+let currentIndex = -1;
+
+function playTrack(index) {
+  currentIndex = index;
+  const track = myMusic[index];
+  if (!track) return;
+
+  document.getElementById('playerThumb').src = track.thumb;
+  document.getElementById('playerTitle').textContent = track.title;
+  document.getElementById('playerAuthor').textContent = track.author;
+  document.getElementById('player').classList.add('active');
+
+  if (track.source === 'yt') {
+    document.getElementById('ytFrame').src =
+      `https://www.youtube.com/embed/${track.id}?autoplay=1`;
+  }
+}
+
+document.getElementById('playerClose').addEventListener('click', () => {
+  document.getElementById('ytFrame').src = '';
+  document.getElementById('player').classList.remove('active');
+});
+
+async function searchYouTube(query) {
+  const results = document.getElementById('results');
+  results.innerHTML = '<div class="loading">Ищу на YouTube...</div>';
+
+  try {
+    const url = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
+    const resp = await fetch(PROXY + encodeURIComponent(url));
+    const html = await resp.text();
+
+    const match = html.match(/var ytInitialData = ({[\s\S]*?});<\/script>/);
+    if (!match) {
+      results.innerHTML = '<div class="error">Не удалось получить данные от YouTube</div>';
+      return;
+    }
+
+    const data = JSON.parse(match[1]);
+    const items = [];
+
+    function extractVideos(obj) {
+      if (!obj) return;
+      if (typeof obj !== 'object') return;
+      if (Array.isArray(obj)) {
+        obj.forEach(extractVideos);
+        return;
+      }
+      if (obj.videoRenderer) {
+        const v = obj.videoRenderer;
+        if (v.videoId && v.title && v.title.runs) {
+          items.push({
+            id: v.videoId,
+            title: v.title.runs[0].text,
+            author: v.ownerText ? v.ownerText.runs[0].text : '',
+            thumb: v.thumbnail ? v.thumbnail.thumbnails[0].url : '',
+            source: 'yt'
+          });
+        }
+      }
+      for (const k in obj) extractVideos(obj[k]);
+    }
+
+    extractVideos(data);
+
+    if (items.length === 0) {
+      results.innerHTML = '<div class="empty">Ничего не найдено</div>';
+      return;
+    }
+
+    window._searchResults = items;
+
+    results.innerHTML = items.slice(0, 20).map((t, i) => `
+      <div class="result-item" onclick="playSearchResult(${i})">
+        <div class="result-thumb-wrap">
+          <img class="result-thumb" src="${t.thumb}" alt="">
+          <span class="source-badge ${t.source}">${t.source.toUpperCase()}</span>
+        </div>
+        <div class="result-info">
+          <div class="result-title">${t.title}</div>
+          <div class="result-author">${t.author}</div>
+        </div>
+        <button class="result-add" onclick="event.stopPropagation(); addToMy(${i})">+</button>
+      </div>
+    `).join('');
+
+  } catch (err) {
+    results.innerHTML = '<div class="error">Ошибка: ' + err.message + '</div>';
+  }
+}
+
+function playSearchResult(i) {
+  const t = window._searchResults[i];
+  if (!t) return;
+
+  document.getElementById('playerThumb').src = t.thumb;
+  document.getElementById('playerTitle').textContent = t.title;
+  document.getElementById('playerAuthor').textContent = t.author;
+  document.getElementById('player').classList.add('active');
+  document.getElementById('ytFrame').src =
+    `https://www.youtube.com/embed/${t.id}?autoplay=1`;
+}
+
+function addToMy(i) {
+  const t = window._searchResults[i];
+  if (!t) return;
+  if (myMusic.find(m => m.id === t.id)) return;
+  myMusic.unshift(t);
+  saveMyMusic();
+  renderMyMusic();
+  alert('Добавлено: ' + t.title);
+}
+
+const searchInput = document.getElementById('searchInput');
+searchInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    const q = searchInput.value.trim();
+    if (!q) return;
+    searchYouTube(q);
+  }
+});
+
+renderMyMusic();
+</script>
+
+</body>
+</html>
