@@ -1,12 +1,8 @@
-name = "my-music-proxy"
+name = "mymusic"
 main = "worker.js"
 compatibility_date = "2026-10-28"
 
 [assets]
-directory = "./public"
+directory = "."
 binding = "ASSETS"
 run_worker_first = ["/api/*"]
-
-[observability.logs]
-enabled = false
-invocation_logs = true
