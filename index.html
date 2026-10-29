@@ -324,12 +324,12 @@ function renderMyMusic() {
   list.innerHTML = myMusic.map((t, i) => `
     <div class="result-item" onclick="playTrack(${i})">
       <div class="result-thumb-wrap">
-        <img class="result-thumb" src="${t.thumb}" alt="">
+        <img class="result-thumb" src="${t.thumb || ''}" alt="">
         <span class="source-badge ${t.source}">${t.source.toUpperCase()}</span>
       </div>
       <div class="result-info">
-        <div class="result-title">${t.title}</div>
-        <div class="result-author">${t.author}</div>
+        <div class="result-title">${t.title || ''}</div>
+        <div class="result-author">${t.author || ''}</div>
       </div>
     </div>
   `).join('');
@@ -338,9 +338,9 @@ function renderMyMusic() {
 let currentTrack = null;
 
 function playScTrack(track) {
-  document.getElementById('playerThumb').src = track.thumb;
-  document.getElementById('playerTitle').textContent = track.title;
-  document.getElementById('playerAuthor').textContent = track.author;
+  document.getElementById('playerThumb').src = track.thumb || '';
+  document.getElementById('playerTitle').textContent = track.title || '';
+  document.getElementById('playerAuthor').textContent = track.author || '';
   document.getElementById('player').classList.add('active');
 
   const url = 'https://w.soundcloud.com/player/?url=' +
@@ -357,9 +357,9 @@ function playTrack(index) {
   if (track.source === 'sc') {
     playScTrack(track);
   } else if (track.source === 'yt') {
-    document.getElementById('playerThumb').src = track.thumb;
-    document.getElementById('playerTitle').textContent = track.title;
-    document.getElementById('playerAuthor').textContent = track.author;
+    document.getElementById('playerThumb').src = track.thumb || '';
+    document.getElementById('playerTitle').textContent = track.title || '';
+    document.getElementById('playerAuthor').textContent = track.author || '';
     document.getElementById('player').classList.add('active');
     document.getElementById('ytFrame').src =
       `https://www.youtube.com/embed/${track.id}?autoplay=1`;
@@ -371,6 +371,21 @@ document.getElementById('playerClose').addEventListener('click', () => {
   document.getElementById('scFrame').src = '';
   document.getElementById('player').classList.remove('active');
 });
+
+function safeThumb(t) {
+  if (!t) return '';
+  let raw = '';
+  if (typeof t.artwork_url === 'string' && t.artwork_url) {
+    raw = t.artwork_url;
+  } else if (t.user && typeof t.user.avatar_url === 'string' && t.user.avatar_url) {
+    raw = t.user.avatar_url;
+  }
+  if (!raw) return '';
+  if (raw.indexOf('-large') !== -1) {
+    return raw.replace('-large', '-t200x200');
+  }
+  return raw;
+}
 
 async function searchSoundCloud(query) {
   const results = document.getElementById('results');
@@ -389,20 +404,19 @@ async function searchSoundCloud(query) {
       return;
     }
 
-    const items = data.collection.filter(t => t && t.permalink_url).map(t => {
-      let thumb = '';
-      if (t.artwork_url) thumb = t.artwork_url.replace('-large', '-t200x200');
-      else if (t.user && t.user.avatar_url) thumb = t.user.avatar_url;
-      return {
+    const items = [];
+    for (const t of data.collection) {
+      if (!t || !t.permalink_url) continue;
+      items.push({
         id: String(t.id),
-        title: t.title || 'Без названия',
-        author: (t.user && t.user.username) ? t.user.username : '',
-        thumb: thumb,
+        title: typeof t.title === 'string' ? t.title : 'Без названия',
+        author: (t.user && typeof t.user.username === 'string') ? t.user.username : '',
+        thumb: safeThumb(t),
         source: 'sc',
         stream_url: t.permalink_url,
         full_url: t.permalink_url
-      };
-    });
+      });
+    }
 
     if (items.length === 0) {
       results.innerHTML = '<div class="empty">Ничего не найдено</div>';
