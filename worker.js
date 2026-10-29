@@ -1,60 +1,140 @@
+/**
+ * RH MUSIC — Cloudflare Worker API
+ *
+ * Routes:
+ *   GET /api/search?q=artist%20song
+ *   GET /api/stream?id=AUDIUS_TRACK_ID
+ *   GET /api/health
+ *
+ * Optional Worker secret:
+ *   AUDIUS_API_KEY — Audius API key (improves rate limits; read-only search may work without it).
+ *
+ * Deployment note:
+ * This Worker expects the HTML frontend to be served from the same origin,
+ * usually through a Cloudflare Workers Static Assets binding named ASSETS.
+ * If your current setup already serves index.html another way, keep that setup
+ * and merge these /api routes into the existing fetch handler.
+ */
+
+const AUDIUS_BASE = "https://api.audius.co/v1";
+const APP_NAME = "RH_MUSIC";
+
+function json(data, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      "cache-control": "no-store",
+      "access-control-allow-origin": "*",
+      "access-control-allow-methods": "GET, OPTIONS",
+      "access-control-allow-headers": "Content-Type, Range"
+    }
+  });
+}
+
+function withCors(response) {
+  const headers = new Headers(response.headers);
+  headers.set("access-control-allow-origin", "*");
+  headers.set("access-control-allow-methods", "GET, OPTIONS");
+  headers.set("access-control-allow-headers", "Content-Type, Range");
+  return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+}
+
+async function audiusFetch(path, env) {
+  const url = new URL(AUDIUS_BASE + path);
+  url.searchParams.set("app_name", APP_NAME);
+  if (env.AUDIUS_API_KEY) url.searchParams.set("api_key", env.AUDIUS_API_KEY);
+  const response = await fetch(url.toString(), {
+    headers: { "accept": "application/json" },
+    cf: { cacheTtl: 30, cacheEverything: true }
+  });
+  if (!response.ok) throw new Error("Audius API вернул HTTP " + response.status);
+  return response.json();
+}
+
+function mapTrack(track) {
+  const artwork = track.artwork || {};
+  return {
+    id: String(track.id),
+    title: track.title || "Без названия",
+    artist: track.user?.name || track.user?.handle || "Неизвестный исполнитель",
+    artwork: artwork["480x480"] || artwork["150x150"] || artwork["1000x1000"] || "",
+    duration: Number(track.duration) || 0,
+    source: "Audius",
+    permalink: track.permalink ? "https://audius.co" + track.permalink : "",
+    streamUrl: ""
+  };
+}
+
 export default {
-  async fetch(request) {
-    const cors = {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-      'Access-Control-Allow-Headers': '*',
-    };
-
-    if (request.method === 'OPTIONS') {
-      return new Response(null, { headers: cors });
-    }
-
+  async fetch(request, env) {
     const url = new URL(request.url);
-    const target = url.searchParams.get('url');
-
-    if (!target) {
-      return new Response('Missing ?url= parameter', { status: 400, headers: cors });
+    if (request.method === "OPTIONS") {
+      return new Response(null, {
+        status: 204,
+        headers: {
+          "access-control-allow-origin": "*",
+          "access-control-allow-methods": "GET, OPTIONS",
+          "access-control-allow-headers": "Content-Type, Range"
+        }
+      });
     }
 
-    let targetUrl;
-    try {
-      targetUrl = new URL(target);
-    } catch (e) {
-      return new Response('Invalid url', { status: 400, headers: cors });
+    if (url.pathname === "/api/health") {
+      return json({ service: "RH MUSIC API", status: "online", source: "Audius" });
     }
 
-    const allowed = [
-      'www.youtube.com',
-      'youtube.com',
-      'm.youtube.com',
-      'music.youtube.com',
-      'api.jamendo.com',
-      'api.soundcloud.com',
-      'soundcloud.com',
-      'api-v2.soundcloud.com',
-    ];
-    if (!allowed.includes(targetUrl.hostname)) {
-      return new Response('Host not allowed: ' + targetUrl.hostname, { status: 403, headers: cors });
+    if (url.pathname === "/api/search") {
+      const query = (url.searchParams.get("q") || "").trim();
+      if (query.length > 160) return json({ error: "Поисковый запрос слишком длинный." }, 400);
+      try {
+        const endpoint = query
+          ? "/tracks/search?query=" + encodeURIComponent(query) + "&limit=25"
+          : "/tracks/trending?limit=20";
+        const result = await audiusFetch(endpoint, env);
+        const tracks = (Array.isArray(result.data) ? result.data : [])
+          .filter(t => t && t.id)
+          .map(mapTrack);
+        return json({ tracks, source: "Audius" });
+      } catch (error) {
+        return json({ error: "Не удалось связаться с Audius. Попробуй позже. Подробности: " + error.message }, 502);
+      }
     }
 
-    const init = {
-      method: request.method,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
-        'Accept-Language': 'en-US,en;q=0.9',
-      },
-    };
+    if (url.pathname === "/api/stream") {
+      const id = (url.searchParams.get("id") || "").trim();
+      if (!/^[a-zA-Z0-9_-]{1,100}$/.test(id)) return json({ error: "Некорректный ID трека." }, 400);
+      try {
+        const streamUrl = new URL(`${AUDIUS_BASE}/tracks/${encodeURIComponent(id)}/stream`);
+        streamUrl.searchParams.set("app_name", APP_NAME);
+        if (env.AUDIUS_API_KEY) streamUrl.searchParams.set("api_key", env.AUDIUS_API_KEY);
 
-    if (request.method === 'POST') {
-      init.headers['Content-Type'] = request.headers.get('Content-Type') || 'application/json';
-      init.body = await request.text();
+        const headers = new Headers({ "accept": "*/*" });
+        const range = request.headers.get("range");
+        if (range) headers.set("range", range);
+
+        // Forward the stream instead of downloading or storing the audio.
+        const upstream = await fetch(streamUrl.toString(), { method: "GET", headers, redirect: "follow" });
+        if (!upstream.ok && upstream.status !== 206) {
+          return json({ error: "Этот трек сейчас недоступен для воспроизведения." }, upstream.status || 502);
+        }
+        return withCors(new Response(upstream.body, {
+          status: upstream.status,
+          statusText: upstream.statusText,
+          headers: upstream.headers
+        }));
+      } catch (error) {
+        return json({ error: "Не удалось открыть аудиопоток: " + error.message }, 502);
+      }
     }
 
-    const resp = await fetch(targetUrl.toString(), init);
+    // Static Assets binding: configure it in Cloudflare if this Worker should serve index.html.
+    if (env.ASSETS) return env.ASSETS.fetch(request);
 
-    const newResp = new Response(resp.body, resp);
-    Object.entries(cors).forEach(([k, v]) => newResp.headers.set(k, v));
-    return newResp;
-  },
+    return json({
+      service: "RH MUSIC API",
+      status: "online",
+      message: "API работает. Настрой раздачу index.html через Cloudflare Static Assets или Pages."
+    });
+  }
 };
