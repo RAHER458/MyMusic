@@ -26,3 +26,89 @@ button,input{font:inherit}button{cursor:pointer;color:inherit;border:0}button:fo
     <p>Ищи композиции в открытом каталоге и слушай их прямо здесь. Добавляй треки в свою библиотеку — загружать MP3 вручную не нужно.</p>
     <form id="searchForm" class="search"><input id="query" type="search" placeholder="Название песни или исполнитель…" autocomplete="off" required><button id="searchBtn" class="primary" type="submit">Найти музыку</button></form>
     <div id="status" class="status" role="status">Источник: Audius. Каталог зависит от доступности треков.</div>
+  </section>
+  <div class="layout">
+    <main>
+      <div class="section-head"><h2 id="resultsTitle">Популярное</h2><span class="muted" id="resultCount"></span></div>
+      <div id="results" class="results"><div class="empty">Загружаем музыку…</div></div>
+    </main>
+    <aside class="sidebar">
+      <section class="side-card"><div class="section-head"><h3>Моя музыка</h3><span class="muted" id="libraryCount">0</span></div><div id="library" class="library-list"><div class="muted">Добавленные треки появятся здесь.</div></div></section>
+      <section class="side-card"><h3>О плеере</h3><div class="muted">RH MUSIC использует открытый каталог Audius. Доступность и полнота каталога отличаются от коммерческих стриминговых сервисов.</div><div style="margin-top:10px"><span class="tag">Без видео</span><span class="tag">Бесплатный источник</span><span class="tag">iPhone + PC</span></div></section>
+    </aside>
+  </div>
+</div>
+<footer class="player">
+  <div class="player-inner">
+    <div class="now"><img id="nowCover" class="cover" alt="" src=""><div class="track-info"><div id="nowTitle" class="track-title">Ничего не играет</div><div id="nowArtist" class="track-artist">Найди песню и нажми ▶</div></div></div>
+    <div class="controls">
+      <div class="control-buttons"><button id="prevBtn" class="icon-btn" aria-label="Предыдущий трек">⏮</button><button id="playBtn" class="big-play" aria-label="Воспроизвести">▶</button><button id="nextBtn" class="icon-btn" aria-label="Следующий трек">⏭</button></div>
+      <div class="timebar"><span id="currentTime">0:00</span><input id="seek" type="range" min="0" max="1000" value="0" aria-label="Перемотка"><span id="duration">0:00</span></div>
+    </div>
+    <div class="volume"><span>🔊</span><input id="volume" type="range" min="0" max="1" step=".01" value=".8" aria-label="Громкость"></div>
+  </div>
+  <audio id="audio" preload="metadata" crossorigin="anonymous"></audio>
+</footer>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const audio = $('audio');
+  const state = { tracks: [], currentIndex: -1, library: loadLibrary(), query: '' };
+  const placeholder = 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120"><defs><linearGradient id="g"><stop stop-color="#4a5cff"/><stop offset="1" stop-color="#8a2be2"/></linearGradient></defs><rect width="120" height="120" rx="18" fill="url(#g)"/><text x="60" y="70" font-size="38" text-anchor="middle" fill="white" font-family="Arial" font-weight="bold">♪</text></svg>');
+  function loadLibrary(){ try{return JSON.parse(localStorage.getItem('rh_music_library')||'[]')}catch{return []} }
+  function saveLibrary(){ localStorage.setItem('rh_music_library', JSON.stringify(state.library)); renderLibrary(); }
+  function safeImage(t){return t.artwork || placeholder}
+  function normalize(t){return {id:String(t.id),title:t.title||'Без названия',artist:t.artist||'Неизвестный исполнитель',artwork:t.artwork||'',duration:Number(t.duration)||0,source:t.source||'Audius',permalink:t.permalink||'',streamUrl:t.streamUrl||''}}
+  function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+  function fmt(sec){if(!Number.isFinite(sec)||sec<0)return '0:00';return Math.floor(sec/60)+':'+String(Math.floor(sec%60)).padStart(2,'0')}
+  function setStatus(text){$('status').textContent=text}
+  async function api(path){const r=await fetch(path);let data;try{data=await r.json()}catch{throw new Error('Сервер вернул некорректный ответ')}if(!r.ok||data.error)throw new Error(data.error||'Ошибка запроса');return data}
+  async function search(q){
+    state.query=q; $('searchBtn').disabled=true; $('searchBtn').textContent='Ищем…'; setStatus('Ищем в каталоге Audius…'); $('results').innerHTML='<div class="empty">Ищем композиции…</div>';
+    try{
+      const data=await api('/api/search?q='+encodeURIComponent(q));
+      state.tracks=(data.tracks||[]).map(normalize); state.currentIndex=-1;
+      $('resultsTitle').textContent=q?'Результаты поиска':'Популярное'; $('resultCount').textContent=state.tracks.length+' треков';
+      renderResults();
+      setStatus(state.tracks.length?`Найдено ${state.tracks.length} треков в Audius.`:'Ничего не найдено. Попробуй другое название.');
+    }catch(e){$('results').innerHTML='<div class="empty">'+esc(e.message)+'<br><br>Проверь, что Worker развёрнут с API-маршрутами из файла worker.js.</div>';setStatus('Не удалось выполнить поиск.')}
+    finally{$('searchBtn').disabled=false;$('searchBtn').textContent='Найти музыку'}
+  }
+  function renderResults(){
+    if(!state.tracks.length){$('results').innerHTML='<div class="empty">Здесь пока нет результатов. Введи название песни выше.</div>';return}
+    $('results').innerHTML=state.tracks.map((t,i)=>`<article class="track"><img class="cover" src="${esc(safeImage(t))}" alt="" loading="lazy" onerror="this.src='${placeholder}'"><div class="track-info"><div class="track-title">${esc(t.title)}</div><div class="track-artist">${esc(t.artist)} · ${fmt(t.duration)}</div><div class="source">${esc(t.source)}</div></div><div class="track-actions"><button class="icon-btn play" data-play="${i}" aria-label="Слушать">▶</button><button class="icon-btn" data-add="${i}" aria-label="Добавить в мою музыку">${state.library.some(x=>x.id===t.id)?'✓':'＋'}</button></div></article>`).join('');
+    $('results').querySelectorAll('[data-play]').forEach(b=>b.addEventListener('click',()=>playIndex(Number(b.dataset.play))));
+    $('results').querySelectorAll('[data-add]').forEach(b=>b.addEventListener('click',()=>addTrack(state.tracks[Number(b.dataset.add)])));
+  }
+  function renderLibrary(){
+    $('libraryCount').textContent=state.library.length;
+    if(!state.library.length){$('library').innerHTML='<div class="muted">Добавленные треки появятся здесь.</div>';return}
+    $('library').innerHTML=state.library.map((t,i)=>`<div class="library-item"><img class="cover" src="${esc(safeImage(t))}" alt="" onerror="this.src='${placeholder}'"><div class="track-info" data-libplay="${i}"><div class="track-title">${esc(t.title)}</div><div class="track-artist">${esc(t.artist)}</div></div><button class="icon-btn" data-remove="${i}" aria-label="Удалить">×</button></div>`).join('');
+    $('library').querySelectorAll('[data-libplay]').forEach(el=>el.addEventListener('click',()=>playTrack(state.library[Number(el.dataset.libplay)])));
+    $('library').querySelectorAll('[data-remove]').forEach(el=>el.addEventListener('click',()=>{state.library.splice(Number(el.dataset.remove),1);saveLibrary();renderResults()}));
+  }
+  function addTrack(t){if(!t)return;if(state.library.some(x=>x.id===t.id)){setStatus('Этот трек уже есть в «Моей музыке».');return}state.library.unshift(t);saveLibrary();renderResults();setStatus('Добавлено в «Мою музыку».')}
+  async function playTrack(track){
+    if(!track)return;
+    const found=state.tracks.findIndex(t=>t.id===track.id); if(found>=0)state.currentIndex=found;
+    $('nowTitle').textContent=track.title;$('nowArtist').textContent=track.artist;$('nowCover').src=safeImage(track);
+    try{
+      audio.src=track.streamUrl||('/api/stream?id='+encodeURIComponent(track.id));
+      audio.load(); await audio.play(); $('playBtn').textContent='Ⅱ'; setStatus('Сейчас играет: '+track.title);
+    }catch(e){setStatus('Не удалось запустить трек. Источник может быть недоступен или браузер заблокировал воспроизведение.');$('playBtn').textContent='▶'}
+  }
+  function playIndex(i){if(i<0||i>=state.tracks.length)return;state.currentIndex=i;playTrack(state.tracks[i])}
+  $('searchForm').addEventListener('submit',e=>{e.preventDefault();const q=$('query').value.trim();if(q)search(q)});
+  $('playBtn').addEventListener('click',async()=>{if(!audio.src){if(state.tracks.length)playIndex(0);return}if(audio.paused){try{await audio.play();$('playBtn').textContent='Ⅱ'}catch{}}else{audio.pause();$('playBtn').textContent='▶'}});
+  $('prevBtn').addEventListener('click',()=>playIndex(Math.max(0,state.currentIndex-1)));
+  $('nextBtn').addEventListener('click',()=>playIndex(Math.min(state.tracks.length-1,state.currentIndex+1)));
+  $('volume').addEventListener('input',e=>audio.volume=Number(e.target.value));audio.volume=.8;
+  audio.addEventListener('timeupdate',()=>{if(audio.duration){$('seek').value=Math.round(audio.currentTime/audio.duration*1000);$('currentTime').textContent=fmt(audio.currentTime);$('duration').textContent=fmt(audio.duration)}});
+  $('seek').addEventListener('input',()=>{if(audio.duration)audio.currentTime=Number($('seek').value)/1000*audio.duration});
+  audio.addEventListener('play',()=>$('playBtn').textContent='Ⅱ');audio.addEventListener('pause',()=>$('playBtn').textContent='▶');
+  audio.addEventListener('ended',()=>{if(state.currentIndex>=0&&state.currentIndex<state.tracks.length-1)playIndex(state.currentIndex+1);else $('playBtn').textContent='▶'});
+  renderLibrary(); search('');
+})();
+</script>
+</body>
+</html>
