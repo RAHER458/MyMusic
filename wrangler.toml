@@ -6,3 +6,7 @@ compatibility_date = "2026-10-28"
 directory = "./public"
 binding = "ASSETS"
 run_worker_first = ["/api/*"]
+
+[observability.logs]
+enabled = false
+invocation_logs = true
