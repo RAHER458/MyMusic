@@ -298,6 +298,7 @@
 
 <script>
 const PROXY = 'https://mymusic.95wr5n8mg8.workers.dev/?url=';
+const SC_CLIENT_ID = 'iZIs9mchVcX5lhVRCeKByGQ0s2stWCeb';
 
 document.querySelectorAll('.tab').forEach(tab => {
   tab.addEventListener('click', () => {
@@ -334,19 +335,32 @@ function renderMyMusic() {
   `).join('');
 }
 
-let currentIndex = -1;
+let currentTrack = null;
 
-function playTrack(index) {
-  currentIndex = index;
-  const track = myMusic[index];
-  if (!track) return;
-
+function playScTrack(track) {
   document.getElementById('playerThumb').src = track.thumb;
   document.getElementById('playerTitle').textContent = track.title;
   document.getElementById('playerAuthor').textContent = track.author;
   document.getElementById('player').classList.add('active');
 
-  if (track.source === 'yt') {
+  const url = 'https://w.soundcloud.com/player/?url=' +
+    encodeURIComponent(track.stream_url) +
+    '&color=%237c5cff&auto_play=true&hide_related=true&show_comments=false&show_user=true&show_reposts=false&show_teaser=false';
+
+  document.getElementById('scFrame').src = url;
+  currentTrack = track;
+}
+
+function playTrack(index) {
+  const track = myMusic[index];
+  if (!track) return;
+  if (track.source === 'sc') {
+    playScTrack(track);
+  } else if (track.source === 'yt') {
+    document.getElementById('playerThumb').src = track.thumb;
+    document.getElementById('playerTitle').textContent = track.title;
+    document.getElementById('playerAuthor').textContent = track.author;
+    document.getElementById('player').classList.add('active');
     document.getElementById('ytFrame').src =
       `https://www.youtube.com/embed/${track.id}?autoplay=1`;
   }
@@ -354,113 +368,50 @@ function playTrack(index) {
 
 document.getElementById('playerClose').addEventListener('click', () => {
   document.getElementById('ytFrame').src = '';
+  document.getElementById('scFrame').src = '';
   document.getElementById('player').classList.remove('active');
 });
 
-function extractInitialData(html) {
-  const marker = 'ytInitialData';
-  const idx = html.indexOf(marker);
-  if (idx === -1) return null;
-
-  let eq = html.indexOf('=', idx);
-  if (eq === -1) return null;
-
-  let start = html.indexOf('{', eq);
-  if (start === -1) return null;
-
-  let depth = 0;
-  let inString = false;
-  let quote = '';
-  let escape = false;
-
-  for (let i = start; i < html.length; i++) {
-    const ch = html[i];
-    if (escape) { escape = false; continue; }
-    if (ch === '\\') { escape = true; continue; }
-    if (inString) {
-      if (ch === quote) { inString = false; }
-      continue;
-    }
-    if (ch === '"' || ch === "'") { inString = true; quote = ch; continue; }
-    if (ch === '{') depth++;
-    else if (ch === '}') {
-      depth--;
-      if (depth === 0) {
-        try {
-          return JSON.parse(html.substring(start, i + 1));
-        } catch (e) {
-          return null;
-        }
-      }
-    }
-  }
-  return null;
-}
-
-async function searchYouTube(query) {
+async function searchSoundCloud(query) {
   const results = document.getElementById('results');
-  results.innerHTML = '<div class="loading">Ищу на YouTube...</div>';
+  results.innerHTML = '<div class="loading">Ищу на SoundCloud...</div>';
 
   try {
-    const url = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}&hl=en&gl=US`;
-    const resp = await fetch(PROXY + encodeURIComponent(url));
-    const html = await resp.text();
+    const apiUrl = 'https://api-v2.soundcloud.com/search/tracks?q=' +
+      encodeURIComponent(query) +
+      '&client_id=' + SC_CLIENT_ID +
+      '&limit=20&offset=0';
+    const resp = await fetch(PROXY + encodeURIComponent(apiUrl));
+    const data = await resp.json();
 
-    if (/Before you continue|consent\.youtube\.com|CONSENT/i.test(html) && html.length < 200000) {
-      results.innerHTML = '<div class="error">YouTube просит согласие на куки. Подожди 10 секунд и попробуй снова, или открой youtube.com в Safari и прими куки.</div>';
+    if (!data || !data.collection) {
+      results.innerHTML = '<div class="error">SoundCloud вернул неожиданный ответ. Возможно, ключ устарел.</div>';
       return;
     }
 
-    const data = extractInitialData(html);
-    if (!data) {
-      results.innerHTML = '<div class="error">Не удалось найти данные в ответе YouTube (' + html.length + ' байт). Попробуй ещё раз.</div>';
-      return;
-    }
+    const items = data.collection.filter(t => t && t.permalink_url).map(t => {
+      let thumb = '';
+      if (t.artwork_url) thumb = t.artwork_url.replace('-large', '-t200x200');
+      else if (t.user && t.user.avatar_url) thumb = t.user.avatar_url;
+      return {
+        id: String(t.id),
+        title: t.title || 'Без названия',
+        author: (t.user && t.user.username) ? t.user.username : '',
+        thumb: thumb,
+        source: 'sc',
+        stream_url: t.permalink_url,
+        full_url: t.permalink_url
+      };
+    });
 
-    const items = [];
-
-    function extractVideos(obj) {
-      if (!obj) return;
-      if (typeof obj !== 'object') return;
-      if (Array.isArray(obj)) { obj.forEach(extractVideos); return; }
-      if (obj.videoRenderer) {
-        const v = obj.videoRenderer;
-        if (v.videoId && v.title) {
-          let title = '';
-          if (v.title.runs && v.title.runs[0]) title = v.title.runs[0].text;
-          else if (v.title.simpleText) title = v.title.simpleText;
-          let author = '';
-          if (v.ownerText && v.ownerText.runs && v.ownerText.runs[0]) author = v.ownerText.runs[0].text;
-          else if (v.longBylineText && v.longBylineText.runs && v.longBylineText.runs[0]) author = v.longBylineText.runs[0].text;
-          let thumb = '';
-          if (v.thumbnail && v.thumbnail.thumbnails && v.thumbnail.thumbnails[0]) {
-            const arr = v.thumbnail.thumbnails;
-            thumb = arr[arr.length - 1].url || arr[0].url;
-          }
-          if (title) {
-            items.push({ id: v.videoId, title, author, thumb, source: 'yt' });
-          }
-        }
-      }
-      for (const k in obj) extractVideos(obj[k]);
-    }
-
-    extractVideos(data);
-
-    const seen = new Set();
-    const unique = [];
-    for (const it of items) {
-      if (!seen.has(it.id)) { seen.add(it.id); unique.push(it); }
-    }
-
-    if (unique.length === 0) {
+    if (items.length === 0) {
       results.innerHTML = '<div class="empty">Ничего не найдено</div>';
       return;
     }
 
-    window._searchResults = unique;
+    window._searchResults = items;
 
-    results.innerHTML = unique.slice(0, 20).map((t, i) => `
+    results.innerHTML = items.map((t, i) => `
       <div class="result-item" onclick="playSearchResult(${i})">
         <div class="result-thumb-wrap">
           <img class="result-thumb" src="${t.thumb}" alt="">
@@ -482,13 +433,7 @@ async function searchYouTube(query) {
 function playSearchResult(i) {
   const t = window._searchResults[i];
   if (!t) return;
-
-  document.getElementById('playerThumb').src = t.thumb;
-  document.getElementById('playerTitle').textContent = t.title;
-  document.getElementById('playerAuthor').textContent = t.author;
-  document.getElementById('player').classList.add('active');
-  document.getElementById('ytFrame').src =
-    `https://www.youtube.com/embed/${t.id}?autoplay=1`;
+  if (t.source === 'sc') playScTrack(t);
 }
 
 function addToMy(i) {
@@ -506,7 +451,7 @@ searchInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') {
     const q = searchInput.value.trim();
     if (!q) return;
-    searchYouTube(q);
+    searchSoundCloud(q);
   }
 });
 
