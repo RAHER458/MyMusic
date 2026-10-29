@@ -1,113 +1,807 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ru">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0a0b10">
 <title>RH MUSIC — личный музыкальный плеер</title>
+
 <style>
-:root{color-scheme:dark;--bg:#0a0b10;--panel:#121522;--panel2:#191d2d;--text:#f5f6ff;--muted:#969bb3;--blue:#4a5cff;--purple:#8a2be2;--line:#262b40}
-*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 80% -20%,#25204a 0,transparent 45%),var(--bg);color:var(--text);font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;min-height:100vh;padding-bottom:112px}
-button,input{font:inherit}button{cursor:pointer;color:inherit;border:0}button:focus-visible,input:focus-visible{outline:2px solid #8c96ff;outline-offset:2px}
-.app{max-width:1200px;margin:auto;padding:24px 24px 30px}.top{display:flex;align-items:center;gap:14px;margin-bottom:26px}.logo{width:44px;height:44px;border-radius:14px;background:linear-gradient(135deg,#00d4ff,#8a2be2);display:grid;place-items:center;font-weight:950;font-size:19px;box-shadow:0 8px 30px #4a5cff35}.brand{font-weight:850;letter-spacing:1.8px;font-size:18px}.brand small{display:block;color:var(--muted);font-size:11px;letter-spacing:1px;font-weight:500;margin-top:1px}
-.hero{padding:28px;border:1px solid #ffffff12;border-radius:24px;background:linear-gradient(120deg,#171b2d,#12121f 70%,#211638);margin-bottom:24px}.hero h1{font-size:clamp(27px,5vw,43px);line-height:1.08;margin:0 0 10px;letter-spacing:-1.2px}.hero p{color:var(--muted);margin:0 0 22px;max-width:640px}.search{display:flex;gap:10px;max-width:760px}.search input{min-width:0;flex:1;border:1px solid #ffffff18;border-radius:14px;background:#080a12;color:var(--text);padding:15px 16px}.primary{border-radius:14px;padding:0 22px;background:linear-gradient(135deg,var(--blue),var(--purple));font-weight:750;white-space:nowrap}.primary:disabled{opacity:.6;cursor:wait}
-.status{color:var(--muted);font-size:13px;min-height:22px;margin:12px 2px 0}.layout{display:grid;grid-template-columns:minmax(0,1fr) 290px;gap:24px}.section-head{display:flex;justify-content:space-between;align-items:center;margin:0 0 14px}.section-head h2{font-size:20px;margin:0}.muted{color:var(--muted);font-size:13px}
-.results{display:grid;gap:8px}.track{display:flex;align-items:center;gap:13px;padding:10px;border-radius:15px;border:1px solid transparent;background:#ffffff05;min-width:0}.track:hover{background:#ffffff0b;border-color:#ffffff12}.cover{width:58px;height:58px;flex:none;border-radius:11px;object-fit:cover;background:linear-gradient(135deg,#252a49,#42225b)}.track-info{min-width:0;flex:1}.track-title{font-weight:750;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.track-artist{color:var(--muted);font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.track-actions{display:flex;gap:7px;align-items:center}.icon-btn{width:38px;height:38px;border-radius:12px;background:#ffffff0a;display:grid;place-items:center;font-size:17px}.icon-btn:hover{background:#4a5cff30}.play{background:#4a5cff24;color:#b8bdff}.side-card{background:var(--panel);border:1px solid #ffffff0c;border-radius:20px;padding:18px;margin-bottom:14px}.side-card h3{margin:0 0 12px;font-size:16px}.empty{padding:26px 18px;text-align:center;color:var(--muted);background:#ffffff04;border:1px dashed #ffffff16;border-radius:16px}.library-list{display:grid;gap:7px}.library-item{display:flex;align-items:center;gap:10px;min-width:0;padding:7px;border-radius:12px}.library-item:hover{background:#ffffff08}.library-item .cover{width:42px;height:42px;border-radius:8px}.library-item .track-info{cursor:pointer}.tag{display:inline-block;padding:5px 8px;border:1px solid #ffffff16;border-radius:999px;color:var(--muted);font-size:11px;margin:3px 4px 0 0}
-.player{position:fixed;z-index:5;left:0;right:0;bottom:0;padding:12px max(18px,env(safe-area-inset-right)) calc(12px + env(safe-area-inset-bottom)) max(18px,env(safe-area-inset-left));background:#0c0e16ed;backdrop-filter:blur(24px);border-top:1px solid #ffffff16}.player-inner{max-width:1200px;margin:auto;display:grid;grid-template-columns:minmax(150px,1fr) minmax(220px,1.3fr) minmax(100px,1fr);gap:22px;align-items:center}.now{display:flex;align-items:center;gap:11px;min-width:0}.now .cover{width:48px;height:48px}.controls{display:grid;gap:5px;min-width:0}.control-buttons{display:flex;align-items:center;justify-content:center;gap:18px}.big-play{width:38px;height:38px;border-radius:50%;background:#f4f5ff;color:#11131b;font-size:17px}.timebar{display:flex;align-items:center;gap:9px;color:var(--muted);font-size:11px}.timebar input{width:100%;accent-color:#8b83ff}.volume{display:flex;align-items:center;justify-content:flex-end;gap:9px}.volume input{width:95px;accent-color:#8b83ff}.source{font-size:10px;color:#8c91ad;margin-top:3px}
-@media(max-width:800px){.app{padding:18px 14px 24px}.layout{grid-template-columns:1fr}.sidebar{display:grid;grid-template-columns:1fr 1fr;gap:12px}.side-card{margin:0}.player-inner{grid-template-columns:minmax(0,1fr) auto;gap:12px}.controls{grid-column:1/-1;grid-row:2}.volume{display:none}.player{padding-top:9px}.player-inner{grid-template-columns:minmax(0,1fr);gap:5px}.now{display:none}.controls{grid-column:auto;grid-row:auto}.control-buttons{gap:25px}.hero{padding:22px 17px}.search{gap:8px}.primary{padding:0 15px}.track{gap:9px}.cover{width:50px;height:50px}.track-actions{gap:4px}.icon-btn{width:35px;height:35px}}
-@media(max-width:420px){.sidebar{grid-template-columns:1fr}.search input{padding:13px 12px}.primary{padding:0 12px}.track-title{font-size:14px}.track-artist{font-size:12px}}
+:root {
+  color-scheme: dark;
+  --bg: #0a0b10;
+  --panel: #121522;
+  --panel2: #191d2d;
+  --text: #f5f6ff;
+  --muted: #969bb3;
+  --blue: #4a5cff;
+  --purple: #8a2be2;
+  --line: #262b40;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: radial-gradient(ellipse at 80% -20%, #25204a 0, transparent 45%), var(--bg);
+  color: var(--text);
+  font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  min-height: 100vh;
+  padding-bottom: 112px;
+}
+
+button, input { font: inherit; }
+button { cursor: pointer; color: inherit; border: 0; }
+
+button:focus-visible, input:focus-visible {
+  outline: 2px solid #8c96ff;
+  outline-offset: 2px;
+}
+
+.app { max-width: 1200px; margin: auto; padding: 24px 24px 30px; }
+
+.top {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 26px;
+}
+
+.logo {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #00d4ff, #8a2be2);
+  display: grid;
+  place-items: center;
+  font-weight: 950;
+  font-size: 19px;
+  box-shadow: 0 8px 30px #4a5cff35;
+}
+
+.brand { font-weight: 850; letter-spacing: 1.8px; font-size: 18px; }
+
+.brand small {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 1px;
+  font-weight: 500;
+  margin-top: 1px;
+}
+
+.hero {
+  padding: 28px;
+  border: 1px solid #ffffff12;
+  border-radius: 24px;
+  background: linear-gradient(120deg, #171b2d, #12121f 70%, #211638);
+  margin-bottom: 24px;
+}
+
+.hero h1 {
+  font-size: clamp(27px, 5vw, 43px);
+  line-height: 1.08;
+  margin: 0 0 10px;
+  letter-spacing: -1.2px;
+}
+
+.hero p {
+  color: var(--muted);
+  margin: 0 0 22px;
+  max-width: 640px;
+}
+
+.search { display: flex; gap: 10px; max-width: 760px; }
+
+.search input {
+  min-width: 0;
+  flex: 1;
+  border: 1px solid #ffffff18;
+  border-radius: 14px;
+  background: #080a12;
+  color: var(--text);
+  padding: 15px 16px;
+}
+
+.primary {
+  border-radius: 14px;
+  padding: 0 22px;
+  background: linear-gradient(135deg, var(--blue), var(--purple));
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.primary:disabled { opacity: .6; cursor: wait; }
+
+.status {
+  color: var(--muted);
+  font-size: 13px;
+  min-height: 22px;
+  margin: 12px 2px 0;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 290px;
+  gap: 24px;
+}
+
+.section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 0 0 14px;
+}
+
+.section-head h2 { font-size: 20px; margin: 0; }
+.muted { color: var(--muted); font-size: 13px; }
+
+.results { display: grid; gap: 8px; }
+
+.track {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 10px;
+  border-radius: 15px;
+  border: 1px solid transparent;
+  background: #ffffff05;
+  min-width: 0;
+}
+
+.track:hover { background: #ffffff0b; border-color: #ffffff12; }
+
+.cover {
+  width: 58px;
+  height: 58px;
+  flex: none;
+  border-radius: 11px;
+  object-fit: cover;
+  background: linear-gradient(135deg, #252a49, #42225b);
+}
+
+.track-info { min-width: 0; flex: 1; }
+
+.track-title {
+  font-weight: 750;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.track-artist {
+  color: var(--muted);
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.track-actions { display: flex; gap: 7px; align-items: center; }
+
+.icon-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: #ffffff0a;
+  display: grid;
+  place-items: center;
+  font-size: 17px;
+}
+
+.icon-btn:hover { background: #4a5cff30; }
+.play { background: #4a5cff24; color: #b8bdff; }
+
+.side-card {
+  background: var(--panel);
+  border: 1px solid #ffffff0c;
+  border-radius: 20px;
+  padding: 18px;
+  margin-bottom: 14px;
+}
+
+.side-card h3 { margin: 0 0 12px; font-size: 16px; }
+
+.empty {
+  padding: 26px 18px;
+  text-align: center;
+  color: var(--muted);
+  background: #ffffff04;
+  border: 1px dashed #ffffff16;
+  border-radius: 16px;
+}
+
+.library-list { display: grid; gap: 7px; }
+
+.library-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 7px;
+  border-radius: 12px;
+}
+
+.library-item:hover { background: #ffffff08; }
+
+.library-item .cover {
+  width: 42px;
+  height: 42px;
+  border-radius: 8px;
+}
+
+.library-item .track-info { cursor: pointer; }
+
+.tag {
+  display: inline-block;
+  padding: 5px 8px;
+  border: 1px solid #ffffff16;
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 11px;
+  margin: 3px 4px 0 0;
+}
+
+.player {
+  position: fixed;
+  z-index: 5;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 12px max(18px, env(safe-area-inset-right)) calc(12px + env(safe-area-inset-bottom)) max(18px, env(safe-area-inset-left));
+  background: #0c0e16ed;
+  backdrop-filter: blur(24px);
+  border-top: 1px solid #ffffff16;
+}
+
+.player-inner {
+  max-width: 1200px;
+  margin: auto;
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) minmax(220px, 1.3fr) minmax(100px, 1fr);
+  gap: 22px;
+  align-items: center;
+}
+
+.now { display: flex; align-items: center; gap: 11px; min-width: 0; }
+.now .cover { width: 48px; height: 48px; }
+
+.controls { display: grid; gap: 5px; min-width: 0; }
+
+.control-buttons {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+}
+
+.big-play {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: #f4f5ff;
+  color: #11131b;
+  font-size: 17px;
+}
+
+.timebar {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.timebar input { width: 100%; accent-color: #8b83ff; }
+
+.volume { display: flex; align-items: center; justify-content: flex-end; gap: 9px; }
+.volume input { width: 95px; accent-color: #8b83ff; }
+.source { font-size: 10px; color: #8c91ad; margin-top: 3px; }
+
+@media(max-width:800px) {
+  .app { padding: 18px 14px 24px; }
+  .layout { grid-template-columns: 1fr; }
+  .sidebar { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .side-card { margin: 0; }
+  .player-inner { grid-template-columns: minmax(0, 1fr); gap: 5px; }
+  .controls { grid-column: auto; grid-row: auto; }
+  .now { display: none; }
+  .volume { display: none; }
+  .player { padding-top: 9px; }
+  .control-buttons { gap: 25px; }
+  .hero { padding: 22px 17px; }
+  .search { gap: 8px; }
+  .primary { padding: 0 15px; }
+  .track { gap: 9px; }
+  .cover { width: 50px; height: 50px; }
+  .track-actions { gap: 4px; }
+  .icon-btn { width: 35px; height: 35px; }
+}
+
+@media(max-width:420px) {
+  .sidebar { grid-template-columns: 1fr; }
+  .search input { padding: 13px 12px; }
+  .primary { padding: 0 12px; }
+  .track-title { font-size: 14px; }
+  .track-artist { font-size: 12px; }
+}
 </style>
 </head>
+
 <body>
 <div class="app">
-  <header class="top"><div class="logo">RH</div><div class="brand">RH MUSIC<small>YOUR PERSONAL PLAYER</small></div></header>
+  <header class="top">
+    <div class="logo">RH</div>
+    <div class="brand">RH MUSIC<small>YOUR PERSONAL PLAYER</small></div>
+  </header>
+
   <section class="hero">
     <h1>Твоя музыка.<br>Твой ритм.</h1>
     <p>Ищи композиции в открытом каталоге и слушай их прямо здесь. Добавляй треки в свою библиотеку — загружать MP3 вручную не нужно.</p>
-    <form id="searchForm" class="search"><input id="query" type="search" placeholder="Название песни или исполнитель…" autocomplete="off" required><button id="searchBtn" class="primary" type="submit">Найти музыку</button></form>
-    <div id="status" class="status" role="status">Источник: Audius. Каталог зависит от доступности треков.</div>
+
+    <form id="searchForm" class="search">
+      <input id="query" type="search" placeholder="Название песни или исполнитель…" autocomplete="off" required>
+      <button id="searchBtn" class="primary" type="submit">Найти музыку</button>
+    </form>
+
+    <div id="status" class="status" role="status">Подключение к музыкальному каталогу…</div>
   </section>
+
   <div class="layout">
     <main>
-      <div class="section-head"><h2 id="resultsTitle">Популярное</h2><span class="muted" id="resultCount"></span></div>
-      <div id="results" class="results"><div class="empty">Загружаем музыку…</div></div>
+      <div class="section-head">
+        <h2 id="resultsTitle">Популярное</h2>
+        <span class="muted" id="resultCount"></span>
+      </div>
+      <div id="results" class="results">
+        <div class="empty">Загружаем музыку…</div>
+      </div>
     </main>
+
     <aside class="sidebar">
-      <section class="side-card"><div class="section-head"><h3>Моя музыка</h3><span class="muted" id="libraryCount">0</span></div><div id="library" class="library-list"><div class="muted">Добавленные треки появятся здесь.</div></div></section>
-      <section class="side-card"><h3>О плеере</h3><div class="muted">RH MUSIC использует открытый каталог Audius. Доступность и полнота каталога отличаются от коммерческих стриминговых сервисов.</div><div style="margin-top:10px"><span class="tag">Без видео</span><span class="tag">Бесплатный источник</span><span class="tag">iPhone + PC</span></div></section>
+      <section class="side-card">
+        <div class="section-head">
+          <h3>Моя музыка</h3>
+          <span class="muted" id="libraryCount">0</span>
+        </div>
+        <div id="library" class="library-list">
+          <div class="muted">Добавленные треки появятся здесь.</div>
+        </div>
+      </section>
+
+      <section class="side-card">
+        <h3>О плеере</h3>
+        <div class="muted">RH MUSIC использует открытый каталог Audius. Доступность и полнота каталога отличаются от коммерческих стриминговых сервисов.</div>
+        <div style="margin-top:10px">
+          <span class="tag">Без видео</span>
+          <span class="tag">Бесплатный источник</span>
+          <span class="tag">iPhone + PC</span>
+        </div>
+      </section>
     </aside>
   </div>
 </div>
+
 <footer class="player">
   <div class="player-inner">
-    <div class="now"><img id="nowCover" class="cover" alt="" src=""><div class="track-info"><div id="nowTitle" class="track-title">Ничего не играет</div><div id="nowArtist" class="track-artist">Найди песню и нажми ▶</div></div></div>
-    <div class="controls">
-      <div class="control-buttons"><button id="prevBtn" class="icon-btn" aria-label="Предыдущий трек">⏮</button><button id="playBtn" class="big-play" aria-label="Воспроизвести">▶</button><button id="nextBtn" class="icon-btn" aria-label="Следующий трек">⏭</button></div>
-      <div class="timebar"><span id="currentTime">0:00</span><input id="seek" type="range" min="0" max="1000" value="0" aria-label="Перемотка"><span id="duration">0:00</span></div>
+    <div class="now">
+      <img id="nowCover" class="cover" alt="" src="">
+      <div class="track-info">
+        <div id="nowTitle" class="track-title">Ничего не играет</div>
+        <div id="nowArtist" class="track-artist">Найди песню и нажми ▶</div>
+      </div>
     </div>
-    <div class="volume"><span>🔊</span><input id="volume" type="range" min="0" max="1" step=".01" value=".8" aria-label="Громкость"></div>
+
+    <div class="controls">
+      <div class="control-buttons">
+        <button id="prevBtn" class="icon-btn" aria-label="Предыдущий трек">⏮</button>
+        <button id="playBtn" class="big-play" aria-label="Воспроизвести">▶</button>
+        <button id="nextBtn" class="icon-btn" aria-label="Следующий трек">⏭</button>
+      </div>
+
+      <div class="timebar">
+        <span id="currentTime">0:00</span>
+        <input id="seek" type="range" min="0" max="1000" value="0" aria-label="Перемотка">
+        <span id="duration">0:00</span>
+      </div>
+    </div>
+
+    <div class="volume">
+      <span>🔊</span>
+      <input id="volume" type="range" min="0" max="1" step=".01" value=".8" aria-label="Громкость">
+    </div>
   </div>
+
   <audio id="audio" preload="metadata" crossorigin="anonymous"></audio>
 </footer>
+
 <script>
 (() => {
+  'use strict';
+
   const $ = id => document.getElementById(id);
   const audio = $('audio');
-  const state = { tracks: [], currentIndex: -1, library: loadLibrary(), query: '' };
-  const placeholder = 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120"><defs><linearGradient id="g"><stop stop-color="#4a5cff"/><stop offset="1" stop-color="#8a2be2"/></linearGradient></defs><rect width="120" height="120" rx="18" fill="url(#g)"/><text x="60" y="70" font-size="38" text-anchor="middle" fill="white" font-family="Arial" font-weight="bold">♪</text></svg>');
-  function loadLibrary(){ try{return JSON.parse(localStorage.getItem('rh_music_library')||'[]')}catch{return []} }
-  function saveLibrary(){ localStorage.setItem('rh_music_library', JSON.stringify(state.library)); renderLibrary(); }
-  function safeImage(t){return t.artwork || placeholder}
-  function normalize(t){return {id:String(t.id),title:t.title||'Без названия',artist:t.artist||'Неизвестный исполнитель',artwork:t.artwork||'',duration:Number(t.duration)||0,source:t.source||'Audius',permalink:t.permalink||'',streamUrl:t.streamUrl||''}}
-  function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-  function fmt(sec){if(!Number.isFinite(sec)||sec<0)return '0:00';return Math.floor(sec/60)+':'+String(Math.floor(sec%60)).padStart(2,'0')}
-  function setStatus(text){$('status').textContent=text}
-  async function api(path){const r=await fetch(path);let data;try{data=await r.json()}catch{throw new Error('Сервер вернул некорректный ответ')}if(!r.ok||data.error)throw new Error(data.error||'Ошибка запроса');return data}
-  async function search(q){
-    state.query=q; $('searchBtn').disabled=true; $('searchBtn').textContent='Ищем…'; setStatus('Ищем в каталоге Audius…'); $('results').innerHTML='<div class="empty">Ищем композиции…</div>';
-    try{
-      const data=await api('/api/search?q='+encodeURIComponent(q));
-      state.tracks=(data.tracks||[]).map(normalize); state.currentIndex=-1;
-      $('resultsTitle').textContent=q?'Результаты поиска':'Популярное'; $('resultCount').textContent=state.tracks.length+' треков';
+
+  /*
+   * ВАЖНО:
+   * Сайт работает на GitHub Pages, а музыкальный API — на Cloudflare.
+   * Поэтому все запросы поиска и аудиопотока направляем на Cloudflare Worker.
+   */
+  const API_BASE = 'https://mymusic.95wr5n8mg8.workers.dev';
+
+  const state = {
+    tracks: [],
+    currentIndex: -1,
+    library: loadLibrary(),
+    query: ''
+  };
+
+  const placeholder = 'data:image/svg+xml;charset=UTF-8,' +
+    encodeURIComponent(
+      '<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120">' +
+      '<defs><linearGradient id="g"><stop stop-color="#4a5cff"/>' +
+      '<stop offset="1" stop-color="#8a2be2"/></linearGradient></defs>' +
+      '<rect width="120" height="120" rx="18" fill="url(#g)"/>' +
+      '<text x="60" y="70" font-size="38" text-anchor="middle" fill="white" ' +
+      'font-family="Arial" font-weight="bold">♪</text></svg>'
+    );
+
+  function loadLibrary() {
+    try {
+      return JSON.parse(localStorage.getItem('rh_music_library') || '[]');
+    } catch {
+      return [];
+    }
+  }
+
+  function saveLibrary() {
+    try {
+      localStorage.setItem('rh_music_library', JSON.stringify(state.library));
+    } catch (e) {
+      console.warn('Не удалось сохранить библиотеку:', e);
+      setStatus('Не удалось сохранить «Мою музыку» на этом устройстве.');
+    }
+    renderLibrary();
+  }
+
+  function safeImage(track) {
+    return track.artwork || placeholder;
+  }
+
+  function normalize(track) {
+    return {
+      id: String(track.id),
+      title: track.title || 'Без названия',
+      artist: track.artist || 'Неизвестный исполнитель',
+      artwork: track.artwork || '',
+      duration: Number(track.duration) || 0,
+      source: track.source || 'Audius',
+      permalink: track.permalink || '',
+      streamUrl: track.streamUrl || ''
+    };
+  }
+
+  function esc(value) {
+    return String(value ?? '').replace(/[&<>"']/g, char => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;'
+    }[char]));
+  }
+
+  function fmt(seconds) {
+    if (!Number.isFinite(seconds) || seconds < 0) return '0:00';
+    return Math.floor(seconds / 60) + ':' +
+      String(Math.floor(seconds % 60)).padStart(2, '0');
+  }
+
+  function setStatus(text) {
+    $('status').textContent = text;
+  }
+
+  /*
+   * Все API-запросы отправляются на Cloudflare Worker.
+   * Обрабатываем сетевые ошибки и некорректный ответ сервера.
+   */
+  async function api(path) {
+    const response = await fetch(API_BASE + path, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+      cache: 'no-store'
+    });
+
+    let data;
+
+    try {
+      data = await response.json();
+    } catch {
+      throw new Error('Сервер вернул некорректный ответ.');
+    }
+
+    if (!response.ok || data.error) {
+      throw new Error(data.error || ('Ошибка сервера: HTTP ' + response.status));
+    }
+
+    return data;
+  }
+
+  async function search(query) {
+    state.query = query;
+
+    $('searchBtn').disabled = true;
+    $('searchBtn').textContent = 'Ищем…';
+    setStatus('Ищем в каталоге Audius…');
+    $('results').innerHTML = '<div class="empty">Ищем композиции…</div>';
+
+    try {
+      const data = await api('/api/search?q=' + encodeURIComponent(query));
+
+      state.tracks = (data.tracks || []).map(normalize);
+      state.currentIndex = -1;
+
+      $('resultsTitle').textContent = query ? 'Результаты поиска' : 'Популярное';
+      $('resultCount').textContent = state.tracks.length + ' треков';
+
       renderResults();
-      setStatus(state.tracks.length?`Найдено ${state.tracks.length} треков в Audius.`:'Ничего не найдено. Попробуй другое название.');
-    }catch(e){$('results').innerHTML='<div class="empty">'+esc(e.message)+'<br><br>Проверь, что Worker развёрнут с API-маршрутами из файла worker.js.</div>';setStatus('Не удалось выполнить поиск.')}
-    finally{$('searchBtn').disabled=false;$('searchBtn').textContent='Найти музыку'}
+
+      if (state.tracks.length) {
+        setStatus('Найдено ' + state.tracks.length + ' треков в Audius.');
+      } else {
+        setStatus('Ничего не найдено. Попробуй другое название.');
+      }
+    } catch (error) {
+      console.error('RH MUSIC search error:', error);
+
+      $('results').innerHTML =
+        '<div class="empty">' +
+        esc(error.message) +
+        '<br><br>Не удалось получить список песен. Попробуй ещё раз позже.' +
+        '</div>';
+
+      $('resultCount').textContent = '';
+      setStatus('Ошибка подключения к музыкальному каталогу.');
+    } finally {
+      $('searchBtn').disabled = false;
+      $('searchBtn').textContent = 'Найти музыку';
+    }
   }
-  function renderResults(){
-    if(!state.tracks.length){$('results').innerHTML='<div class="empty">Здесь пока нет результатов. Введи название песни выше.</div>';return}
-    $('results').innerHTML=state.tracks.map((t,i)=>`<article class="track"><img class="cover" src="${esc(safeImage(t))}" alt="" loading="lazy" onerror="this.src='${placeholder}'"><div class="track-info"><div class="track-title">${esc(t.title)}</div><div class="track-artist">${esc(t.artist)} · ${fmt(t.duration)}</div><div class="source">${esc(t.source)}</div></div><div class="track-actions"><button class="icon-btn play" data-play="${i}" aria-label="Слушать">▶</button><button class="icon-btn" data-add="${i}" aria-label="Добавить в мою музыку">${state.library.some(x=>x.id===t.id)?'✓':'＋'}</button></div></article>`).join('');
-    $('results').querySelectorAll('[data-play]').forEach(b=>b.addEventListener('click',()=>playIndex(Number(b.dataset.play))));
-    $('results').querySelectorAll('[data-add]').forEach(b=>b.addEventListener('click',()=>addTrack(state.tracks[Number(b.dataset.add)])));
+
+  function renderResults() {
+    if (!state.tracks.length) {
+      $('results').innerHTML =
+        '<div class="empty">Здесь пока нет результатов. Введи название песни выше.</div>';
+      return;
+    }
+
+    $('results').innerHTML = state.tracks.map((track, index) => `
+      <article class="track">
+        <img
+          class="cover"
+          src="${esc(safeImage(track))}"
+          alt=""
+          loading="lazy"
+          onerror="this.onerror=null;this.src='${placeholder}'"
+        >
+
+        <div class="track-info">
+          <div class="track-title">${esc(track.title)}</div>
+          <div class="track-artist">${esc(track.artist)} · ${fmt(track.duration)}</div>
+          <div class="source">${esc(track.source)}</div>
+        </div>
+
+        <div class="track-actions">
+          <button class="icon-btn play" data-play="${index}" aria-label="Слушать">▶</button>
+          <button class="icon-btn" data-add="${index}" aria-label="Добавить в мою музыку">
+            ${state.library.some(item => item.id === track.id) ? '✓' : '＋'}
+          </button>
+        </div>
+      </article>
+    `).join('');
+
+    $('results').querySelectorAll('[data-play]').forEach(button => {
+      button.addEventListener('click', () => {
+        playIndex(Number(button.dataset.play));
+      });
+    });
+
+    $('results').querySelectorAll('[data-add]').forEach(button => {
+      button.addEventListener('click', () => {
+        addTrack(state.tracks[Number(button.dataset.add)]);
+      });
+    });
   }
-  function renderLibrary(){
-    $('libraryCount').textContent=state.library.length;
-    if(!state.library.length){$('library').innerHTML='<div class="muted">Добавленные треки появятся здесь.</div>';return}
-    $('library').innerHTML=state.library.map((t,i)=>`<div class="library-item"><img class="cover" src="${esc(safeImage(t))}" alt="" onerror="this.src='${placeholder}'"><div class="track-info" data-libplay="${i}"><div class="track-title">${esc(t.title)}</div><div class="track-artist">${esc(t.artist)}</div></div><button class="icon-btn" data-remove="${i}" aria-label="Удалить">×</button></div>`).join('');
-    $('library').querySelectorAll('[data-libplay]').forEach(el=>el.addEventListener('click',()=>playTrack(state.library[Number(el.dataset.libplay)])));
-    $('library').querySelectorAll('[data-remove]').forEach(el=>el.addEventListener('click',()=>{state.library.splice(Number(el.dataset.remove),1);saveLibrary();renderResults()}));
+
+  function renderLibrary() {
+    $('libraryCount').textContent = state.library.length;
+
+    if (!state.library.length) {
+      $('library').innerHTML =
+        '<div class="muted">Добавленные треки появятся здесь.</div>';
+      return;
+    }
+
+    $('library').innerHTML = state.library.map((track, index) => `
+      <div class="library-item">
+        <img
+          class="cover"
+          src="${esc(safeImage(track))}"
+          alt=""
+          onerror="this.onerror=null;this.src='${placeholder}'"
+        >
+
+        <div class="track-info" data-libplay="${index}">
+          <div class="track-title">${esc(track.title)}</div>
+          <div class="track-artist">${esc(track.artist)}</div>
+        </div>
+
+        <button class="icon-btn" data-remove="${index}" aria-label="Удалить">×</button>
+      </div>
+    `).join('');
+
+    $('library').querySelectorAll('[data-libplay]').forEach(element => {
+      element.addEventListener('click', () => {
+        playTrack(state.library[Number(element.dataset.libplay)]);
+      });
+    });
+
+    $('library').querySelectorAll('[data-remove]').forEach(button => {
+      button.addEventListener('click', () => {
+        state.library.splice(Number(button.dataset.remove), 1);
+        saveLibrary();
+        renderResults();
+      });
+    });
   }
-  function addTrack(t){if(!t)return;if(state.library.some(x=>x.id===t.id)){setStatus('Этот трек уже есть в «Моей музыке».');return}state.library.unshift(t);saveLibrary();renderResults();setStatus('Добавлено в «Мою музыку».')}
-  async function playTrack(track){
-    if(!track)return;
-    const found=state.tracks.findIndex(t=>t.id===track.id); if(found>=0)state.currentIndex=found;
-    $('nowTitle').textContent=track.title;$('nowArtist').textContent=track.artist;$('nowCover').src=safeImage(track);
-    try{
-      audio.src=track.streamUrl||('/api/stream?id='+encodeURIComponent(track.id));
-      audio.load(); await audio.play(); $('playBtn').textContent='Ⅱ'; setStatus('Сейчас играет: '+track.title);
-    }catch(e){setStatus('Не удалось запустить трек. Источник может быть недоступен или браузер заблокировал воспроизведение.');$('playBtn').textContent='▶'}
+
+  function addTrack(track) {
+    if (!track) return;
+
+    if (state.library.some(item => item.id === track.id)) {
+      setStatus('Этот трек уже есть в «Моей музыке».');
+      return;
+    }
+
+    state.library.unshift(track);
+    saveLibrary();
+    renderResults();
+    setStatus('Добавлено в «Мою музыку».');
   }
-  function playIndex(i){if(i<0||i>=state.tracks.length)return;state.currentIndex=i;playTrack(state.tracks[i])}
-  $('searchForm').addEventListener('submit',e=>{e.preventDefault();const q=$('query').value.trim();if(q)search(q)});
-  $('playBtn').addEventListener('click',async()=>{if(!audio.src){if(state.tracks.length)playIndex(0);return}if(audio.paused){try{await audio.play();$('playBtn').textContent='Ⅱ'}catch{}}else{audio.pause();$('playBtn').textContent='▶'}});
-  $('prevBtn').addEventListener('click',()=>playIndex(Math.max(0,state.currentIndex-1)));
-  $('nextBtn').addEventListener('click',()=>playIndex(Math.min(state.tracks.length-1,state.currentIndex+1)));
-  $('volume').addEventListener('input',e=>audio.volume=Number(e.target.value));audio.volume=.8;
-  audio.addEventListener('timeupdate',()=>{if(audio.duration){$('seek').value=Math.round(audio.currentTime/audio.duration*1000);$('currentTime').textContent=fmt(audio.currentTime);$('duration').textContent=fmt(audio.duration)}});
-  $('seek').addEventListener('input',()=>{if(audio.duration)audio.currentTime=Number($('seek').value)/1000*audio.duration});
-  audio.addEventListener('play',()=>$('playBtn').textContent='Ⅱ');audio.addEventListener('pause',()=>$('playBtn').textContent='▶');
-  audio.addEventListener('ended',()=>{if(state.currentIndex>=0&&state.currentIndex<state.tracks.length-1)playIndex(state.currentIndex+1);else $('playBtn').textContent='▶'});
-  renderLibrary(); search('');
+
+  async function playTrack(track) {
+    if (!track) return;
+
+    const foundIndex = state.tracks.findIndex(item => item.id === track.id);
+
+    if (foundIndex >= 0) {
+      state.currentIndex = foundIndex;
+    }
+
+    $('nowTitle').textContent = track.title;
+    $('nowArtist').textContent = track.artist;
+    $('nowCover').src = safeImage(track);
+
+    /*
+     * Адрес аудиопотока также обязательно должен вести на Cloudflare,
+     * а не на относительный путь GitHub Pages.
+     */
+    const streamUrl = track.streamUrl ||
+      (API_BASE + '/api/stream?id=' + encodeURIComponent(track.id));
+
+    try {
+      audio.src = streamUrl;
+      audio.load();
+
+      await audio.play();
+
+      $('playBtn').textContent = 'Ⅱ';
+      setStatus('Сейчас играет: ' + track.title);
+    } catch (error) {
+      console.error('RH MUSIC playback error:', error);
+
+      $('playBtn').textContent = '▶';
+
+      setStatus(
+        'Не удалось запустить трек. Возможно, этот трек временно недоступен.'
+      );
+    }
+  }
+
+  function playIndex(index) {
+    if (index < 0 || index >= state.tracks.length) return;
+
+    state.currentIndex = index;
+    playTrack(state.tracks[index]);
+  }
+
+  $('searchForm').addEventListener('submit', event => {
+    event.preventDefault();
+
+    const query = $('query').value.trim();
+
+    if (query) search(query);
+  });
+
+  $('playBtn').addEventListener('click', async () => {
+    if (!audio.src) {
+      if (state.tracks.length) playIndex(0);
+      return;
+    }
+
+    if (audio.paused) {
+      try {
+        await audio.play();
+        $('playBtn').textContent = 'Ⅱ';
+      } catch (error) {
+        console.error(error);
+        setStatus('Не удалось начать воспроизведение.');
+      }
+    } else {
+      audio.pause();
+      $('playBtn').textContent = '▶';
+    }
+  });
+
+  $('prevBtn').addEventListener('click', () => {
+    if (state.currentIndex > 0) {
+      playIndex(state.currentIndex - 1);
+    }
+  });
+
+  $('nextBtn').addEventListener('click', () => {
+    if (state.currentIndex < state.tracks.length - 1) {
+      playIndex(state.currentIndex + 1);
+    }
+  });
+
+  $('volume').addEventListener('input', event => {
+    audio.volume = Number(event.target.value);
+  });
+
+  audio.volume = 0.8;
+
+  audio.addEventListener('timeupdate', () => {
+    if (audio.duration && Number.isFinite(audio.duration)) {
+      $('seek').value = Math.round(audio.currentTime / audio.duration * 1000);
+      $('currentTime').textContent = fmt(audio.currentTime);
+      $('duration').textContent = fmt(audio.duration);
+    }
+  });
+
+  $('seek').addEventListener('input', () => {
+    if (audio.duration && Number.isFinite(audio.duration)) {
+      audio.currentTime = Number($('seek').value) / 1000 * audio.duration;
+    }
+  });
+
+  audio.addEventListener('play', () => {
+    $('playBtn').textContent = 'Ⅱ';
+  });
+
+  audio.addEventListener('pause', () => {
+    $('playBtn').textContent = '▶';
+  });
+
+  audio.addEventListener('error', () => {
+    if (audio.src) {
+      setStatus('Ошибка аудиопотока. Попробуй выбрать другой трек.');
+    }
+  });
+
+  audio.addEventListener('ended', () => {
+    if (state.currentIndex >= 0 &&
+        state.currentIndex < state.tracks.length - 1) {
+      playIndex(state.currentIndex + 1);
+    } else {
+      $('playBtn').textContent = '▶';
+    }
+  });
+
+  renderLibrary();
+
+  // При открытии страницы загружаем популярные треки через Cloudflare.
+  search('');
 })();
 </script>
 </body>
