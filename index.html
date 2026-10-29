@@ -167,6 +167,7 @@
     padding: 20px;
     font-size: 14px;
     line-height: 1.6;
+    word-break: break-word;
   }
   .player {
     position: fixed;
@@ -372,46 +373,59 @@ document.getElementById('playerClose').addEventListener('click', () => {
   document.getElementById('player').classList.remove('active');
 });
 
-function safeThumb(t) {
-  if (!t) return '';
-  let raw = '';
-  if (typeof t.artwork_url === 'string' && t.artwork_url) {
-    raw = t.artwork_url;
-  } else if (t.user && typeof t.user.avatar_url === 'string' && t.user.avatar_url) {
-    raw = t.user.avatar_url;
-  }
-  if (!raw) return '';
-  if (raw.indexOf('-large') !== -1) {
-    return raw.replace('-large', '-t200x200');
-  }
-  return raw;
-}
-
 async function searchSoundCloud(query) {
   const results = document.getElementById('results');
   results.innerHTML = '<div class="loading">Ищу на SoundCloud...</div>';
 
+  let stage = 'build-url';
   try {
     const apiUrl = 'https://api-v2.soundcloud.com/search/tracks?q=' +
       encodeURIComponent(query) +
       '&client_id=' + SC_CLIENT_ID +
       '&limit=20&offset=0';
-    const resp = await fetch(PROXY + encodeURIComponent(apiUrl));
-    const data = await resp.json();
+    const fullUrl = PROXY + encodeURIComponent(apiUrl);
 
-    if (!data || !data.collection) {
-      results.innerHTML = '<div class="error">SoundCloud вернул неожиданный ответ. Возможно, ключ устарел.</div>';
+    stage = 'fetch';
+    const resp = await fetch(fullUrl);
+    stage = 'read-text';
+    const text = await resp.text();
+
+    if (text.length < 50) {
+      results.innerHTML = '<div class="error">DIAG [' + stage + '] Пустой ответ (' + text.length + ' байт). HTTP ' + resp.status + '. Ответ: ' + text.substring(0, 200) + '</div>';
       return;
     }
 
+    stage = 'parse-json';
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch (e) {
+      results.innerHTML = '<div class="error">DIAG [parse-json] HTTP ' + resp.status + '. Первые 400 символов: ' + text.substring(0, 400) + '</div>';
+      return;
+    }
+
+    stage = 'check-collection';
+    if (!data || !data.collection) {
+      results.innerHTML = '<div class="error">DIAG [check-collection] JSON не содержит collection. Ключи: ' + Object.keys(data || {}).join(',') + '</div>';
+      return;
+    }
+
+    stage = 'map-items';
     const items = [];
     for (const t of data.collection) {
       if (!t || !t.permalink_url) continue;
+      let thumb = '';
+      if (typeof t.artwork_url === 'string' && t.artwork_url) {
+        thumb = t.artwork_url;
+        if (thumb.indexOf('-large') !== -1) thumb = thumb.replace('-large', '-t200x200');
+      } else if (t.user && typeof t.user.avatar_url === 'string' && t.user.avatar_url) {
+        thumb = t.user.avatar_url;
+      }
       items.push({
         id: String(t.id),
-        title: typeof t.title === 'string' ? t.title : 'Без названия',
+        title: (typeof t.title === 'string' && t.title) ? t.title : 'Без названия',
         author: (t.user && typeof t.user.username === 'string') ? t.user.username : '',
-        thumb: safeThumb(t),
+        thumb: thumb,
         source: 'sc',
         stream_url: t.permalink_url,
         full_url: t.permalink_url
@@ -425,6 +439,7 @@ async function searchSoundCloud(query) {
 
     window._searchResults = items;
 
+    stage = 'render';
     results.innerHTML = items.map((t, i) => `
       <div class="result-item" onclick="playSearchResult(${i})">
         <div class="result-thumb-wrap">
@@ -440,7 +455,7 @@ async function searchSoundCloud(query) {
     `).join('');
 
   } catch (err) {
-    results.innerHTML = '<div class="error">Ошибка: ' + err.message + '</div>';
+    results.innerHTML = '<div class="error">DIAG [' + stage + '] ' + err.name + ': ' + err.message + '</div>';
   }
 }
 
