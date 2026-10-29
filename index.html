@@ -166,6 +166,7 @@
     color: #ff5555;
     padding: 20px;
     font-size: 14px;
+    line-height: 1.6;
   }
   .player {
     position: fixed;
@@ -356,41 +357,89 @@ document.getElementById('playerClose').addEventListener('click', () => {
   document.getElementById('player').classList.remove('active');
 });
 
+function extractInitialData(html) {
+  const marker = 'ytInitialData';
+  const idx = html.indexOf(marker);
+  if (idx === -1) return null;
+
+  let eq = html.indexOf('=', idx);
+  if (eq === -1) return null;
+
+  let start = html.indexOf('{', eq);
+  if (start === -1) return null;
+
+  let depth = 0;
+  let inString = false;
+  let quote = '';
+  let escape = false;
+
+  for (let i = start; i < html.length; i++) {
+    const ch = html[i];
+    if (escape) { escape = false; continue; }
+    if (ch === '\\') { escape = true; continue; }
+    if (inString) {
+      if (ch === quote) { inString = false; }
+      continue;
+    }
+    if (ch === '"' || ch === "'") { inString = true; quote = ch; continue; }
+    if (ch === '{') depth++;
+    else if (ch === '}') {
+      depth--;
+      if (depth === 0) {
+        try {
+          return JSON.parse(html.substring(start, i + 1));
+        } catch (e) {
+          return null;
+        }
+      }
+    }
+  }
+  return null;
+}
+
 async function searchYouTube(query) {
   const results = document.getElementById('results');
   results.innerHTML = '<div class="loading">Ищу на YouTube...</div>';
 
   try {
-    const url = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
+    const url = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}&hl=en&gl=US`;
     const resp = await fetch(PROXY + encodeURIComponent(url));
     const html = await resp.text();
 
-    const match = html.match(/var ytInitialData = ({[\s\S]*?});<\/script>/);
-    if (!match) {
-      results.innerHTML = '<div class="error">Не удалось получить данные от YouTube</div>';
+    if (/Before you continue|consent\.youtube\.com|CONSENT/i.test(html) && html.length < 200000) {
+      results.innerHTML = '<div class="error">YouTube просит согласие на куки. Подожди 10 секунд и попробуй снова, или открой youtube.com в Safari и прими куки.</div>';
       return;
     }
 
-    const data = JSON.parse(match[1]);
+    const data = extractInitialData(html);
+    if (!data) {
+      results.innerHTML = '<div class="error">Не удалось найти данные в ответе YouTube (' + html.length + ' байт). Попробуй ещё раз.</div>';
+      return;
+    }
+
     const items = [];
 
     function extractVideos(obj) {
       if (!obj) return;
       if (typeof obj !== 'object') return;
-      if (Array.isArray(obj)) {
-        obj.forEach(extractVideos);
-        return;
-      }
+      if (Array.isArray(obj)) { obj.forEach(extractVideos); return; }
       if (obj.videoRenderer) {
         const v = obj.videoRenderer;
-        if (v.videoId && v.title && v.title.runs) {
-          items.push({
-            id: v.videoId,
-            title: v.title.runs[0].text,
-            author: v.ownerText ? v.ownerText.runs[0].text : '',
-            thumb: v.thumbnail ? v.thumbnail.thumbnails[0].url : '',
-            source: 'yt'
-          });
+        if (v.videoId && v.title) {
+          let title = '';
+          if (v.title.runs && v.title.runs[0]) title = v.title.runs[0].text;
+          else if (v.title.simpleText) title = v.title.simpleText;
+          let author = '';
+          if (v.ownerText && v.ownerText.runs && v.ownerText.runs[0]) author = v.ownerText.runs[0].text;
+          else if (v.longBylineText && v.longBylineText.runs && v.longBylineText.runs[0]) author = v.longBylineText.runs[0].text;
+          let thumb = '';
+          if (v.thumbnail && v.thumbnail.thumbnails && v.thumbnail.thumbnails[0]) {
+            const arr = v.thumbnail.thumbnails;
+            thumb = arr[arr.length - 1].url || arr[0].url;
+          }
+          if (title) {
+            items.push({ id: v.videoId, title, author, thumb, source: 'yt' });
+          }
         }
       }
       for (const k in obj) extractVideos(obj[k]);
@@ -398,14 +447,20 @@ async function searchYouTube(query) {
 
     extractVideos(data);
 
-    if (items.length === 0) {
+    const seen = new Set();
+    const unique = [];
+    for (const it of items) {
+      if (!seen.has(it.id)) { seen.add(it.id); unique.push(it); }
+    }
+
+    if (unique.length === 0) {
       results.innerHTML = '<div class="empty">Ничего не найдено</div>';
       return;
     }
 
-    window._searchResults = items;
+    window._searchResults = unique;
 
-    results.innerHTML = items.slice(0, 20).map((t, i) => `
+    results.innerHTML = unique.slice(0, 20).map((t, i) => `
       <div class="result-item" onclick="playSearchResult(${i})">
         <div class="result-thumb-wrap">
           <img class="result-thumb" src="${t.thumb}" alt="">
