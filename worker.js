@@ -1,20 +1,33 @@
 /**
- * RH MUSIC — MULTI-SOURCE MUSIC API
+ * RH MUSIC — MULTI-SOURCE API
+ *
  * Sources:
  *   1. Audius
- *   2. Internet Archive
+ *   2. Verome API / YouTube Music
  *
  * Routes:
  *   GET /api/health
- *   GET /api/search?q=artist%20song
- *   GET /api/stream?id=AUDIUS_TRACK_ID
+ *   GET /api/search?q=...
+ *   GET /api/stream?id=...          Audius
+ *   GET /api/verome/stream?id=...   Verome
+ *
+ * Optional Worker secret:
+ *   AUDIUS_API_KEY
  */
 
 const AUDIUS_BASE = "https://api.audius.co/v1";
-const AUDIUS_APP_NAME = "RH_MUSIC";
+const VEROME_BASE = "https://verome-api.deno.dev";
 
-const ARCHIVE_SEARCH =
-  "https://archive.org/advancedsearch.php";
+const APP_NAME = "RH_MUSIC";
+
+// Абсолютный адрес нужен для корректного воспроизведения,
+// даже если интерфейс открыт на GitHub Pages.
+const WORKER_BASE = "https://mymusic.95wr5n8mg8.workers.dev";
+
+
+/* =========================
+   COMMON HELPERS
+========================= */
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -23,8 +36,10 @@ function json(data, status = 200) {
       "content-type": "application/json; charset=utf-8",
       "cache-control": "no-store",
       "access-control-allow-origin": "*",
-      "access-control-allow-methods": "GET, OPTIONS",
-      "access-control-allow-headers": "Content-Type, Range"
+      "access-control-allow-methods": "GET, HEAD, OPTIONS",
+      "access-control-allow-headers": "Content-Type, Range",
+      "access-control-expose-headers":
+        "Content-Length, Content-Range, Accept-Ranges"
     }
   });
 }
@@ -33,8 +48,18 @@ function withCors(response) {
   const headers = new Headers(response.headers);
 
   headers.set("access-control-allow-origin", "*");
-  headers.set("access-control-allow-methods", "GET, OPTIONS");
-  headers.set("access-control-allow-headers", "Content-Type, Range");
+  headers.set(
+    "access-control-allow-methods",
+    "GET, HEAD, OPTIONS"
+  );
+  headers.set(
+    "access-control-allow-headers",
+    "Content-Type, Range"
+  );
+  headers.set(
+    "access-control-expose-headers",
+    "Content-Length, Content-Range, Accept-Ranges"
+  );
 
   return new Response(response.body, {
     status: response.status,
@@ -46,11 +71,11 @@ function withCors(response) {
 async function fetchJson(url, options = {}) {
   const response = await fetch(url, {
     ...options,
+    signal: AbortSignal.timeout(15000),
     headers: {
       "accept": "application/json",
       ...(options.headers || {})
-    },
-    signal: AbortSignal.timeout(12000)
+    }
   });
 
   if (!response.ok) {
@@ -60,6 +85,37 @@ async function fetchJson(url, options = {}) {
   return response.json();
 }
 
+function parseDuration(value) {
+  if (typeof value === "number") {
+    return Math.max(0, Math.floor(value));
+  }
+
+  if (typeof value !== "string") {
+    return 0;
+  }
+
+  const parts = value.trim().split(":").map(Number);
+
+  if (
+    parts.length === 2 &&
+    parts.every(Number.isFinite)
+  ) {
+    return parts[0] * 60 + parts[1];
+  }
+
+  if (
+    parts.length === 3 &&
+    parts.every(Number.isFinite)
+  ) {
+    return parts[0] * 3600 +
+      parts[1] * 60 +
+      parts[2];
+  }
+
+  return 0;
+}
+
+
 /* =========================
    AUDIUS
 ========================= */
@@ -67,10 +123,13 @@ async function fetchJson(url, options = {}) {
 async function audiusFetch(path, env) {
   const url = new URL(AUDIUS_BASE + path);
 
-  url.searchParams.set("app_name", AUDIUS_APP_NAME);
+  url.searchParams.set("app_name", APP_NAME);
 
   if (env.AUDIUS_API_KEY) {
-    url.searchParams.set("api_key", env.AUDIUS_API_KEY);
+    url.searchParams.set(
+      "api_key",
+      env.AUDIUS_API_KEY
+    );
   }
 
   return fetchJson(url.toString(), {
@@ -119,164 +178,228 @@ async function searchAudius(query, env) {
     .map(mapAudiusTrack);
 }
 
+
 /* =========================
-   INTERNET ARCHIVE
+   VEROME / YOUTUBE MUSIC
 ========================= */
 
-function archiveTitle(item) {
-  if (Array.isArray(item.title)) {
-    return item.title[0] || "Без названия";
-  }
-
-  return item.title || "Без названия";
-}
-
-function archiveCreator(item) {
-  if (Array.isArray(item.creator)) {
-    return item.creator.join(", ");
-  }
-
-  return item.creator || "Неизвестный исполнитель";
-}
-
-function encodeArchivePathPart(value) {
-  return encodeURIComponent(value).replace(
-    /[!'()*]/g,
-    char => "%" + char.charCodeAt(0).toString(16).toUpperCase()
+async function searchVerome(query) {
+  const url = new URL(
+    VEROME_BASE + "/api/search"
   );
-}
 
-async function getArchiveAudio(identifier) {
-  const url =
-    "https://archive.org/metadata/" +
-    encodeURIComponent(identifier);
+  url.searchParams.set("q", query);
+  url.searchParams.set("filter", "songs");
 
-  const metadata = await fetchJson(url);
+  // Не запускаем дополнительный поиск YouTube
+  // для каждого найденного трека.
+  url.searchParams.set("fallback", "0");
 
-  const files = Array.isArray(metadata.files)
-    ? metadata.files
+  const data = await fetchJson(url.toString());
+
+  const results = Array.isArray(data.results)
+    ? data.results
     : [];
 
-  const supported = files.filter(file => {
-    if (!file.name) return false;
+  return results
+    .filter(track => {
+      return track &&
+        track.videoId &&
+        track.resultType !== "artist" &&
+        track.resultType !== "album" &&
+        track.resultType !== "playlist";
+    })
+    .map(track => {
+      const videoId = String(track.videoId);
 
-    const name = String(file.name).toLowerCase();
+      const thumbnail =
+        track.thumbnails?.find(item => item?.url)?.url ||
+        "";
 
-    // Оставляем только аудиоформаты,
-    // которые обычно поддерживаются браузерами.
-    const supportedFormat =
-      /\.(mp3|ogg|oga|m4a|aac|wav|flac|opus)$/i.test(name);
-
-    // Исключаем служебные и технические файлы.
-    const forbidden =
-      name.includes("_meta.") ||
-      name.endsWith(".xml") ||
-      name.endsWith(".json") ||
-      name.endsWith(".sqlite") ||
-      name.endsWith(".torrent");
-
-    return supportedFormat && !forbidden;
-  });
-
-  // MP3 предпочтительнее для воспроизведения
-  // на iPhone и в большинстве браузеров.
-  supported.sort((a, b) => {
-    const rank = name => {
-      const lower = name.toLowerCase();
-
-      if (lower.endsWith(".mp3")) return 0;
-      if (lower.endsWith(".m4a")) return 1;
-      if (lower.endsWith(".aac")) return 2;
-      if (lower.endsWith(".ogg") || lower.endsWith(".oga")) return 3;
-      if (lower.endsWith(".opus")) return 4;
-      if (lower.endsWith(".wav")) return 5;
-      if (lower.endsWith(".flac")) return 6;
-
-      return 10;
-    };
-
-    return rank(a.name) - rank(b.name);
-  });
-
-  const audioFile = supported[0];
-
-  if (!audioFile) return null;
-
-  const streamUrl =
-    "https://archive.org/download/" +
-    encodeURIComponent(identifier) +
-    "/" +
-    encodeArchivePathPart(audioFile.name);
-
-  const rawDuration =
-    audioFile.length &&
-    Number(audioFile.length) > 0
-      ? 0
-      : 0;
-
-  return {
-    audioFile,
-    streamUrl,
-    duration: rawDuration
-  };
-}
-
-async function searchInternetArchive(query) {
-  if (!query) return [];
-
-  const url = new URL(ARCHIVE_SEARCH);
-
-  url.searchParams.set(
-    "q",
-    "(" + query.replace(/[+\-!(){}\[\]^"~*?:\\/]/g, " ") +
-      ") AND mediatype:audio"
-  );
-
-  url.searchParams.append("fl[]", "identifier");
-  url.searchParams.append("fl[]", "title");
-  url.searchParams.append("fl[]", "creator");
-  url.searchParams.append("fl[]", "mediatype");
-
-  url.searchParams.set("rows", "15");
-  url.searchParams.set("page", "1");
-  url.searchParams.set("output", "json");
-
-  const result = await fetchJson(url.toString());
-
-  const docs = result?.response?.docs || [];
-
-  // Получаем метаданные аудиофайлов параллельно.
-  // Ограничиваем число записей, чтобы не перегружать API.
-  const checked = await Promise.allSettled(
-    docs.slice(0, 12).map(async item => {
-      if (!item.identifier) return null;
-
-      const audio = await getArchiveAudio(item.identifier);
-
-      if (!audio) return null;
+      const artist = Array.isArray(track.artists)
+        ? track.artists
+            .map(item => item?.name)
+            .filter(Boolean)
+            .join(", ")
+        : "";
 
       return {
-        id: "archive:" + item.identifier,
-        title: archiveTitle(item),
-        artist: archiveCreator(item),
-        artwork:
-          "https://archive.org/services/img/" +
-          encodeURIComponent(item.identifier),
-        duration: audio.duration,
-        source: "Internet Archive",
+        // Префикс не позволяет смешать ID разных источников.
+        id: "verome_" + videoId,
+
+        // Отдельно храним настоящий YouTube video ID.
+        videoId,
+
+        title: track.title || "Без названия",
+
+        artist: artist || "Неизвестный исполнитель",
+
+        artwork: thumbnail,
+
+        duration: parseDuration(track.duration),
+
+        source: "Verome · YouTube Music",
+
         permalink:
-          "https://archive.org/details/" +
-          encodeURIComponent(item.identifier),
-        streamUrl: audio.streamUrl
+          "https://music.youtube.com/watch?v=" +
+          encodeURIComponent(videoId),
+
+        // Этот маршрут разрешает поток и передаёт аудио.
+        streamUrl:
+          WORKER_BASE +
+          "/api/verome/stream?id=" +
+          encodeURIComponent(videoId)
       };
-    })
+    });
+}
+
+
+/* =========================
+   AUDIUS STREAM
+========================= */
+
+async function streamAudius(request, env, id) {
+  if (!/^[a-zA-Z0-9_-]{1,100}$/.test(id)) {
+    return json({
+      error: "Некорректный ID трека."
+    }, 400);
+  }
+
+  const url = new URL(
+    AUDIUS_BASE +
+    "/tracks/" +
+    encodeURIComponent(id) +
+    "/stream"
   );
 
-  return checked
-    .filter(result => result.status === "fulfilled")
-    .map(result => result.value)
-    .filter(Boolean);
+  url.searchParams.set("app_name", APP_NAME);
+
+  if (env.AUDIUS_API_KEY) {
+    url.searchParams.set(
+      "api_key",
+      env.AUDIUS_API_KEY
+    );
+  }
+
+  const headers = new Headers({
+    "accept": "*/*"
+  });
+
+  const range = request.headers.get("range");
+
+  if (range) {
+    headers.set("range", range);
+  }
+
+  const upstream = await fetch(url.toString(), {
+    method: request.method === "HEAD" ? "HEAD" : "GET",
+    headers,
+    redirect: "follow",
+    signal: AbortSignal.timeout(20000)
+  });
+
+  if (!upstream.ok && upstream.status !== 206) {
+    return json({
+      error: "Этот трек сейчас недоступен."
+    }, upstream.status || 502);
+  }
+
+  return withCors(new Response(upstream.body, {
+    status: upstream.status,
+    statusText: upstream.statusText,
+    headers: upstream.headers
+  }));
 }
+
+
+/* =========================
+   VEROME STREAM
+========================= */
+
+async function streamVerome(request, id) {
+  // Принимаем только стандартные YouTube video ID.
+  if (!/^[a-zA-Z0-9_-]{11}$/.test(id)) {
+    return json({
+      error: "Некорректный ID композиции Verome."
+    }, 400);
+  }
+
+  // Сначала получаем доступные аудиопотоки.
+  const resolverUrl = new URL(
+    VEROME_BASE + "/api/stream"
+  );
+
+  resolverUrl.searchParams.set("id", id);
+
+  const resolved = await fetchJson(
+    resolverUrl.toString()
+  );
+
+  const streams = Array.isArray(
+    resolved.streamingUrls
+  )
+    ? resolved.streamingUrls
+    : [];
+
+  if (!resolved.success || streams.length === 0) {
+    return json({
+      error:
+        "Verome не смог получить аудио для этой композиции."
+    }, 502);
+  }
+
+  // Выбираем первый доступный аудиопоток.
+  // При необходимости можно будет добавить выбор качества.
+  const stream = streams.find(item => {
+    return item &&
+      typeof item.url === "string" &&
+      /^https?:\/\//i.test(item.url);
+  });
+
+  if (!stream) {
+    return json({
+      error: "Источник не вернул доступную аудиоссылку."
+    }, 502);
+  }
+
+  // Передаём URL через предусмотренный Verome аудиопрокси.
+  const proxyUrl = new URL(
+    VEROME_BASE + "/api/proxy"
+  );
+
+  proxyUrl.searchParams.set("url", stream.url);
+
+  const headers = new Headers({
+    "accept": "*/*"
+  });
+
+  const range = request.headers.get("range");
+
+  if (range) {
+    headers.set("range", range);
+  }
+
+  const upstream = await fetch(proxyUrl.toString(), {
+    method: request.method === "HEAD" ? "HEAD" : "GET",
+    headers,
+    redirect: "follow",
+    signal: AbortSignal.timeout(30000)
+  });
+
+  if (!upstream.ok && upstream.status !== 206) {
+    return json({
+      error:
+        "Не удалось получить аудио от Verome. Попробуй другой трек."
+    }, 502);
+  }
+
+  return withCors(new Response(upstream.body, {
+    status: upstream.status,
+    statusText: upstream.statusText,
+    headers: upstream.headers
+  }));
+}
+
 
 /* =========================
    MAIN WORKER
@@ -291,11 +414,26 @@ export default {
         status: 204,
         headers: {
           "access-control-allow-origin": "*",
-          "access-control-allow-methods": "GET, OPTIONS",
-          "access-control-allow-headers": "Content-Type, Range"
+          "access-control-allow-methods":
+            "GET, HEAD, OPTIONS",
+          "access-control-allow-headers":
+            "Content-Type, Range",
+          "access-control-expose-headers":
+            "Content-Length, Content-Range, Accept-Ranges"
         }
       });
     }
+
+    if (
+      request.method !== "GET" &&
+      request.method !== "HEAD"
+    ) {
+      return json({
+        error: "Метод не поддерживается."
+      }, 405);
+    }
+
+    /* Health check */
 
     if (url.pathname === "/api/health") {
       return json({
@@ -303,13 +441,17 @@ export default {
         status: "online",
         sources: [
           "Audius",
-          "Internet Archive"
+          "Verome / YouTube Music"
         ]
       });
     }
 
+    /* Search */
+
     if (url.pathname === "/api/search") {
-      const query = (url.searchParams.get("q") || "").trim();
+      const query = (
+        url.searchParams.get("q") || ""
+      ).trim();
 
       if (query.length > 160) {
         return json({
@@ -317,7 +459,7 @@ export default {
         }, 400);
       }
 
-      // Без запроса показываем популярные треки Audius.
+      // Пустой запрос — популярные композиции Audius.
       if (!query) {
         try {
           const tracks = await searchAudius("", env);
@@ -326,19 +468,20 @@ export default {
             tracks,
             sources: ["Audius"]
           });
-        } catch (error) {
+        } catch {
           return json({
             tracks: [],
             sources: [],
-            error: "Не удалось загрузить популярную музыку."
+            error:
+              "Не удалось загрузить популярные композиции."
           }, 502);
         }
       }
 
-      // Ищем одновременно в обоих источниках.
+      // Запрашиваем оба источника параллельно.
       const results = await Promise.allSettled([
         searchAudius(query, env),
-        searchInternetArchive(query)
+        searchVerome(query)
       ]);
 
       const audiusTracks =
@@ -346,15 +489,15 @@ export default {
           ? results[0].value
           : [];
 
-      const archiveTracks =
+      const veromeTracks =
         results[1].status === "fulfilled"
           ? results[1].value
           : [];
 
-      // Объединяем результаты и убираем дубликаты.
+      // Audius и Verome объединяются в общий список.
       const combined = [
-        ...audiusTracks,
-        ...archiveTracks
+        ...veromeTracks,
+        ...audiusTracks
       ];
 
       const unique = [];
@@ -369,93 +512,68 @@ export default {
         unique.push(track);
       }
 
-      const activeSources = [];
+      const sources = [];
 
-      if (audiusTracks.length) {
-        activeSources.push("Audius");
+      if (veromeTracks.length > 0) {
+        sources.push("Verome / YouTube Music");
       }
 
-      if (archiveTracks.length) {
-        activeSources.push("Internet Archive");
+      if (audiusTracks.length > 0) {
+        sources.push("Audius");
       }
 
+      // Даже если один источник недоступен,
+      // второй продолжает работать.
       return json({
         tracks: unique,
-        sources: activeSources,
+        sources,
         sourceStatus: {
           audius: results[0].status === "fulfilled",
-          internetArchive: results[1].status === "fulfilled"
+          verome: results[1].status === "fulfilled"
         }
       });
     }
 
-    if (url.pathname === "/api/stream") {
-      const id = (url.searchParams.get("id") || "").trim();
+    /* Audius playback */
 
-      // Прямые ссылки Internet Archive передаются в index.html
-      // через поле streamUrl. Этот маршрут нужен для Audius.
-      if (
-        !/^[a-zA-Z0-9_-]{1,100}$/.test(id) ||
-        id.startsWith("archive:")
-      ) {
-        return json({
-          error: "Некорректный ID трека."
-        }, 400);
-      }
+    if (url.pathname === "/api/stream") {
+      const id = (
+        url.searchParams.get("id") || ""
+      ).trim();
 
       try {
-        const streamUrl = new URL(
-          AUDIUS_BASE +
-          "/tracks/" +
-          encodeURIComponent(id) +
-          "/stream"
+        return await streamAudius(
+          request,
+          env,
+          id
         );
-
-        streamUrl.searchParams.set("app_name", AUDIUS_APP_NAME);
-
-        if (env.AUDIUS_API_KEY) {
-          streamUrl.searchParams.set(
-            "api_key",
-            env.AUDIUS_API_KEY
-          );
-        }
-
-        const headers = new Headers({
-          "accept": "*/*"
-        });
-
-        const range = request.headers.get("range");
-
-        if (range) {
-          headers.set("range", range);
-        }
-
-        const upstream = await fetch(streamUrl.toString(), {
-          headers,
-          redirect: "follow",
-          signal: AbortSignal.timeout(20000)
-        });
-
-        if (!upstream.ok && upstream.status !== 206) {
-          return json({
-            error: "Этот трек сейчас недоступен."
-          }, upstream.status || 502);
-        }
-
-        return withCors(new Response(upstream.body, {
-          status: upstream.status,
-          statusText: upstream.statusText,
-          headers: upstream.headers
-        }));
-      } catch (error) {
+      } catch {
         return json({
-          error: "Не удалось открыть аудиопоток."
+          error: "Не удалось открыть аудиопоток Audius."
         }, 502);
       }
     }
 
-    // Сохраняем поддержку Cloudflare Static Assets,
-    // если она настроена в проекте.
+    /* Verome playback */
+
+    if (url.pathname === "/api/verome/stream") {
+      const id = (
+        url.searchParams.get("id") || ""
+      ).trim();
+
+      try {
+        return await streamVerome(request, id);
+      } catch (error) {
+        return json({
+          error:
+            "Ошибка Verome: " +
+            (error?.message || "источник недоступен")
+        }, 502);
+      }
+    }
+
+    /* Static Assets */
+
     if (env.ASSETS) {
       return env.ASSETS.fetch(request);
     }
