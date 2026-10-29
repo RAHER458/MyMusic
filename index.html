@@ -249,7 +249,25 @@
     border-radius: 50%;
     font-size: 20px;
   }
-  #ytFrame, #scFrame {
+  
+  /* ВРЕМЕННО: делаем iframe большим для теста */
+  #ytFrame {
+    position: fixed;
+    top: 100px;
+    left: 10px;
+    right: 10px;
+    width: calc(100% - 20px);
+    height: 250px;
+    background: #000;
+    z-index: 200;
+    border: 1px solid #ff0000;
+    display: none;
+  }
+  #ytFrame.active {
+    display: block;
+  }
+
+  #scFrame {
     position: absolute;
     width: 1px;
     height: 1px;
@@ -264,7 +282,7 @@
 
 <div class="header">
   <div class="logo">My Music</div>
-  <div class="version">v1</div>
+  <div class="version">v2</div>
 </div>
 
 <div class="tabs">
@@ -305,7 +323,7 @@
   </div>
 </div>
 
-<iframe id="ytFrame" allow="autoplay"></iframe>
+<iframe id="ytFrame" allow="autoplay; encrypted-media" allowfullscreen></iframe>
 <iframe id="scFrame" allow="autoplay"></iframe>
 
 <script>
@@ -353,8 +371,11 @@ function playYtTrack(track) {
   document.getElementById('playerTitle').textContent = track.title || '';
   document.getElementById('playerAuthor').textContent = track.author || '';
   document.getElementById('player').classList.add('active');
-  document.getElementById('ytFrame').src =
-    `https://www.youtube.com/embed/${track.id}?autoplay=1`;
+  
+  const frame = document.getElementById('ytFrame');
+  frame.src = `https://www.youtube.com/embed/${track.id}?autoplay=1&playsinline=1&origin=https://raher458.github.io`;
+  frame.classList.add('active');
+  
   currentTrack = track;
 }
 
@@ -365,7 +386,9 @@ function playTrack(index) {
 }
 
 document.getElementById('playerClose').addEventListener('click', () => {
-  document.getElementById('ytFrame').src = '';
+  const frame = document.getElementById('ytFrame');
+  frame.src = '';
+  frame.classList.remove('active');
   document.getElementById('scFrame').src = '';
   document.getElementById('player').classList.remove('active');
 });
