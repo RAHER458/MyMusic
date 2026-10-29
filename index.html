@@ -299,7 +299,6 @@
 
 <script>
 const PROXY = 'https://mymusic.95wr5n8mg8.workers.dev/?url=';
-const SC_CLIENT_ID = 'iZIs9mchVcX5lhVRCeKByGQ0s2stWCeb';
 
 document.querySelectorAll('.tab').forEach(tab => {
   tab.addEventListener('click', () => {
@@ -338,33 +337,20 @@ function renderMyMusic() {
 
 let currentTrack = null;
 
-function playScTrack(track) {
+function playYtTrack(track) {
   document.getElementById('playerThumb').src = track.thumb || '';
   document.getElementById('playerTitle').textContent = track.title || '';
   document.getElementById('playerAuthor').textContent = track.author || '';
   document.getElementById('player').classList.add('active');
-
-  const url = 'https://w.soundcloud.com/player/?url=' +
-    encodeURIComponent(track.stream_url) +
-    '&color=%237c5cff&auto_play=true&hide_related=true&show_comments=false&show_user=true&show_reposts=false&show_teaser=false';
-
-  document.getElementById('scFrame').src = url;
+  document.getElementById('ytFrame').src =
+    `https://www.youtube.com/embed/${track.id}?autoplay=1`;
   currentTrack = track;
 }
 
 function playTrack(index) {
   const track = myMusic[index];
   if (!track) return;
-  if (track.source === 'sc') {
-    playScTrack(track);
-  } else if (track.source === 'yt') {
-    document.getElementById('playerThumb').src = track.thumb || '';
-    document.getElementById('playerTitle').textContent = track.title || '';
-    document.getElementById('playerAuthor').textContent = track.author || '';
-    document.getElementById('player').classList.add('active');
-    document.getElementById('ytFrame').src =
-      `https://www.youtube.com/embed/${track.id}?autoplay=1`;
-  }
+  if (track.source === 'yt') playYtTrack(track);
 }
 
 document.getElementById('playerClose').addEventListener('click', () => {
@@ -373,25 +359,56 @@ document.getElementById('playerClose').addEventListener('click', () => {
   document.getElementById('player').classList.remove('active');
 });
 
-async function searchSoundCloud(query) {
-  const results = document.getElementById('results');
-  results.innerHTML = '<div class="loading">Ищу на SoundCloud...</div>';
+function extractThumb(v) {
+  if (!v.thumbnail || !v.thumbnail.thumbnails) return '';
+  const arr = v.thumbnail.thumbnails;
+  let best = arr[0];
+  for (const t of arr) {
+    if (t.width && best.width && t.width > best.width) best = t;
+  }
+  return best.url || '';
+}
 
-  let stage = 'build-url';
+function extractText(obj) {
+  if (!obj) return '';
+  if (typeof obj.simpleText === 'string') return obj.simpleText;
+  if (obj.runs && obj.runs[0] && typeof obj.runs[0].text === 'string') return obj.runs[0].text;
+  return '';
+}
+
+async function searchYouTube(query) {
+  const results = document.getElementById('results');
+  results.innerHTML = '<div class="loading">Ищу на YouTube...</div>';
+
+  let stage = 'build';
   try {
-    const apiUrl = 'https://api-v2.soundcloud.com/search/tracks?q=' +
-      encodeURIComponent(query) +
-      '&client_id=' + SC_CLIENT_ID +
-      '&limit=20&offset=0';
+    const apiUrl = 'https://www.youtube.com/youtubei/v1/search?prettyPrint=false';
     const fullUrl = PROXY + encodeURIComponent(apiUrl);
 
+    const body = JSON.stringify({
+      context: {
+        client: {
+          clientName: 'WEB',
+          clientVersion: '2.20240101.00.00',
+          hl: 'en',
+          gl: 'US'
+        }
+      },
+      query: query
+    });
+
     stage = 'fetch';
-    const resp = await fetch(fullUrl);
+    const resp = await fetch(fullUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: body
+    });
+
     stage = 'read-text';
     const text = await resp.text();
 
     if (text.length < 50) {
-      results.innerHTML = '<div class="error">DIAG [' + stage + '] Пустой ответ (' + text.length + ' байт). HTTP ' + resp.status + '. Ответ: ' + text.substring(0, 200) + '</div>';
+      results.innerHTML = '<div class="error">DIAG [' + stage + '] Пустой ответ (' + text.length + ' байт). HTTP ' + resp.status + '</div>';
       return;
     }
 
@@ -400,47 +417,52 @@ async function searchSoundCloud(query) {
     try {
       data = JSON.parse(text);
     } catch (e) {
-      results.innerHTML = '<div class="error">DIAG [parse-json] HTTP ' + resp.status + '. Первые 400 символов: ' + text.substring(0, 400) + '</div>';
+      results.innerHTML = '<div class="error">DIAG [parse-json] HTTP ' + resp.status + '. Первые 400: ' + text.substring(0, 400) + '</div>';
       return;
     }
 
-    stage = 'check-collection';
-    if (!data || !data.collection) {
-      results.innerHTML = '<div class="error">DIAG [check-collection] JSON не содержит collection. Ключи: ' + Object.keys(data || {}).join(',') + '</div>';
-      return;
-    }
-
-    stage = 'map-items';
+    stage = 'extract';
     const items = [];
-    for (const t of data.collection) {
-      if (!t || !t.permalink_url) continue;
-      let thumb = '';
-      if (typeof t.artwork_url === 'string' && t.artwork_url) {
-        thumb = t.artwork_url;
-        if (thumb.indexOf('-large') !== -1) thumb = thumb.replace('-large', '-t200x200');
-      } else if (t.user && typeof t.user.avatar_url === 'string' && t.user.avatar_url) {
-        thumb = t.user.avatar_url;
+
+    function walk(obj) {
+      if (!obj) return;
+      if (typeof obj !== 'object') return;
+      if (Array.isArray(obj)) { obj.forEach(walk); return; }
+      if (obj.videoRenderer) {
+        const v = obj.videoRenderer;
+        if (v.videoId) {
+          const title = extractText(v.title);
+          const author = extractText(v.ownerText) || extractText(v.longBylineText);
+          if (title) {
+            items.push({
+              id: v.videoId,
+              title: title,
+              author: author,
+              thumb: extractThumb(v),
+              source: 'yt'
+            });
+          }
+        }
       }
-      items.push({
-        id: String(t.id),
-        title: (typeof t.title === 'string' && t.title) ? t.title : 'Без названия',
-        author: (t.user && typeof t.user.username === 'string') ? t.user.username : '',
-        thumb: thumb,
-        source: 'sc',
-        stream_url: t.permalink_url,
-        full_url: t.permalink_url
-      });
+      for (const k in obj) walk(obj[k]);
+    }
+    walk(data);
+
+    const seen = new Set();
+    const unique = [];
+    for (const it of items) {
+      if (!seen.has(it.id)) { seen.add(it.id); unique.push(it); }
     }
 
-    if (items.length === 0) {
-      results.innerHTML = '<div class="empty">Ничего не найдено</div>';
+    if (unique.length === 0) {
+      results.innerHTML = '<div class="error">DIAG [extract] JSON пришёл, но videoRenderer не найдено. Ключи верхнего уровня: ' + Object.keys(data || {}).join(',') + '</div>';
       return;
     }
 
-    window._searchResults = items;
+    window._searchResults = unique;
 
     stage = 'render';
-    results.innerHTML = items.map((t, i) => `
+    results.innerHTML = unique.slice(0, 20).map((t, i) => `
       <div class="result-item" onclick="playSearchResult(${i})">
         <div class="result-thumb-wrap">
           <img class="result-thumb" src="${t.thumb}" alt="">
@@ -462,7 +484,7 @@ async function searchSoundCloud(query) {
 function playSearchResult(i) {
   const t = window._searchResults[i];
   if (!t) return;
-  if (t.source === 'sc') playScTrack(t);
+  if (t.source === 'yt') playYtTrack(t);
 }
 
 function addToMy(i) {
@@ -480,7 +502,7 @@ searchInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') {
     const q = searchInput.value.trim();
     if (!q) return;
-    searchSoundCloud(q);
+    searchYouTube(q);
   }
 });
 
