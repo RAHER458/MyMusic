@@ -130,7 +130,8 @@ button:focus-visible, input:focus-visible {
   padding: 11px 14px;
 }
 .auth-note { color: var(--muted); font-size: 11px; margin: 6px 2px 0; }
-\n.status {
+
+.status {
   color: var(--muted);
   font-size: 13px;
   min-height: 22px;
@@ -552,7 +553,8 @@ button:focus-visible, input:focus-visible {
 
     $('searchBtn').disabled = true;
     $('searchBtn').textContent = 'Ищем…';
-    state.yandexToken = $('yandexToken').value.trim();\n    setStatus('Ищем в каталоге Яндекс Музыки…');
+    state.yandexToken = $('yandexToken').value.trim();
+    setStatus('Ищем в каталоге Яндекс Музыки…');
     $('results').innerHTML = '<div class="empty">Ищем композиции…</div>';
 
     try {
