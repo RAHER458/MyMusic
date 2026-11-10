@@ -16,3 +16,11 @@ CREATE TABLE IF NOT EXISTS sessions (
 );
 CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at);
+
+-- Rate limiting for login and registration attempts
+CREATE TABLE IF NOT EXISTS rate_limits (
+ key TEXT PRIMARY KEY,
+ attempt_count INTEGER NOT NULL DEFAULT 0,
+ window_started_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_rate_limits_window ON rate_limits(window_started_at);
