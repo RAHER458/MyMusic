@@ -9,6 +9,24 @@ async function derive(password,saltHex){const salt=saltHex?unhex(saltHex):bytes(
 function userShape(r){return{id:r.id,username:r.username,display_name:r.display_name||"",bio:r.bio||"",created_at:r.created_at}}
 function validName(s){return/^[a-zA-Z0-9_.-]{3,24}$/.test(s)}
 async function session(req,env){const h=req.headers.get("Authorization")||"",token=h.startsWith("Bearer ")?h.slice(7):"";if(!token)return null;return await env.DB.prepare("SELECT users.id,users.username,users.display_name,users.bio,users.created_at FROM sessions JOIN users ON users.id=sessions.user_id WHERE sessions.token_hash=? AND sessions.expires_at>?").bind(await digest(token),Date.now()).first()}
+async function rateLimit(req,env,action){
+ const ip=req.headers.get("CF-Connecting-IP")||"unknown";
+ const key=await digest("rh-social-rate:"+action+":"+ip);
+ const now=Date.now();
+ const windowMs=action==="register"?60*60*1000:15*60*1000;
+ const max=action==="register"?5:20;
+ const row=await env.DB.prepare(`INSERT INTO rate_limits(key,attempt_count,window_started_at) VALUES(?,?,?)
+ ON CONFLICT(key) DO UPDATE SET
+ attempt_count=CASE WHEN rate_limits.window_started_at<=? THEN 1 ELSE rate_limits.attempt_count+1 END,
+ window_started_at=CASE WHEN rate_limits.window_started_at<=? THEN excluded.window_started_at ELSE rate_limits.window_started_at END
+ RETURNING attempt_count,window_started_at`).bind(key,1,now,now-windowMs,now-windowMs).first();
+ if(row && row.attempt_count>max){
+  const retry=Math.max(1,Math.ceil((row.window_started_at+windowMs-now)/1000));
+  return new Response(JSON.stringify({error:"Слишком много попыток. Попробуй позже."}),{status:429,headers:{"Content-Type":"application/json; charset=utf-8","Access-Control-Allow-Origin":ALLOWED_ORIGIN,"Access-Control-Allow-Methods":"GET, POST, OPTIONS","Access-Control-Allow-Headers":"Content-Type, Authorization","Retry-After":String(retry),"Cache-Control":"no-store","Vary":"Origin"}});
+ }
+ if(Math.random()<0.02) await env.DB.prepare("DELETE FROM rate_limits WHERE window_started_at<?").bind(now-86400000).run();
+ return null;
+}
 async function issueSession(env,userId){const token=hex(bytes(32)),now=new Date().toISOString();await env.DB.prepare("INSERT INTO sessions(token_hash,user_id,expires_at,created_at) VALUES(?,?,?,?)").bind(await digest(token),userId,Date.now()+SESSION_DAYS*86400000,now).run();return token}
 export default{async fetch(req,env){
  const origin=req.headers.get("Origin")||"";
@@ -19,6 +37,7 @@ export default{async fetch(req,env){
  if(!env.DB)return json({error:"D1 binding DB is missing."},500);
  try{
   if(req.method==="POST"&&path==="/api/register"){
+   const limited=await rateLimit(req,env,"register");if(limited)return limited;
    const b=await req.json(),username=String(b.username||"").trim(),password=String(b.password||"");
    if(!validName(username))return json({error:"Логин: 3–24 символа, латиница, цифры, точка, дефис и _."},400);
    if(password.length<6||password.length>128)return json({error:"Пароль должен быть от 6 до 128 символов."},400);
@@ -29,6 +48,7 @@ export default{async fetch(req,env){
    return json({token,user:userShape(u)},201)
   }
   if(req.method==="POST"&&path==="/api/login"){
+   const limited=await rateLimit(req,env,"login");if(limited)return limited;
    const b=await req.json(),username=String(b.username||"").trim(),password=String(b.password||"");
    const row=await env.DB.prepare("SELECT * FROM users WHERE username=? COLLATE NOCASE").bind(username).first();
    if(!row)return json({error:"Неверный логин или пароль."},401);
