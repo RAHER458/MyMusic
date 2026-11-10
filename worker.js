@@ -236,11 +236,11 @@ export default {
         }
       }
       const unique = uniqueTracks(tracks);
-      const hasMore = settled.some(item =>
-        item.status === "fulfilled" &&
-        ["Audius", "Яндекс Музыка", "JioSaavn"].includes(item.value.source) &&
-        item.value.tracks.length >= limit
-      );
+      const hasMore = settled.some(item => {
+        if (item.status !== "fulfilled") return false;
+        if (item.value.source === "JioSaavn") return item.value.tracks.length >= 10;
+        return ["Audius", "Яндекс Музыка"].includes(item.value.source) && item.value.tracks.length >= limit;
+      });
       if (!unique.length && warnings.length) {
         return json({ error: "Музыкальные каталоги временно недоступны.", details: warnings, tracks: [], page, hasMore: false }, 502);
       }
