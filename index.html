@@ -522,10 +522,13 @@ button:focus-visible, input:focus-visible {
    * Все API-запросы отправляются на Cloudflare Worker.
    * Обрабатываем сетевые ошибки и некорректный ответ сервера.
    */
-  async function api(path) {
+  async function api(path, token = '') {
+    const headers = { 'Accept': 'application/json' };
+    if (token) headers.Authorization = 'OAuth ' + token;
+
     const response = await fetch(API_BASE + path, {
       method: 'GET',
-      headers: { 'Accept': 'application/json' },
+      headers,
       cache: 'no-store'
     });
 
@@ -703,6 +706,13 @@ button:focus-visible, input:focus-visible {
      * Адрес аудиопотока также обязательно должен вести на Cloudflare,
      * а не на относительный путь GitHub Pages.
      */
+    if (track.source === 'Яндекс Музыка') {
+      $('playBtn').textContent = '▶';
+      setStatus('Поиск Яндекс Музыки подключён. Для встроенного воспроизведения нужен следующий этап авторизации и аудиопотока. Открываю трек в Яндекс Музыке.');
+      if (track.permalink) window.open(track.permalink, '_blank', 'noopener');
+      return;
+    }
+
     const streamUrl = track.streamUrl ||
       (API_BASE + '/api/stream?id=' + encodeURIComponent(track.id));
 
