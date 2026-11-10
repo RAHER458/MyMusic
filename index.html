@@ -50,14 +50,14 @@ const placeholder='data:image/svg+xml;charset=UTF-8,'+encodeURIComponent('<svg x
 let all=[],visible=[],pending=[],library=[],current=-1,busy=false,query='',page=0,hasMore=false;
 try{library=JSON.parse(localStorage.getItem('rh_music_library')||'[]')}catch{library=[]}
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const norm=t=>({id:String(t.id),title:t.title||'Без названия',artist:t.artist||'Неизвестный исполнитель',artwork:t.artwork||'',duration:Number(t.duration)||0,source:t.source||'Audius',permalink:t.permalink||'',streamUrl:t.streamUrl||''});
+const norm=t=>({id:String(t.id),title:t.title||'Без названия',artist:t.artist||'Неизвестный исполнитель',artwork:t.artwork||'',duration:Number(t.duration)||0,source:t.source||'Audius',permalink:t.permalink||'',streamUrl:t.streamUrl||'',previewOnly:!!t.previewOnly});
 const time=n=>Math.floor((Number(n)||0)/60)+':'+String(Math.floor((Number(n)||0)%60)).padStart(2,'0');
 function toast(s){$('toast').textContent=s;$('toast').classList.add('show');setTimeout(()=>$('toast').classList.remove('show'),2000)}
 async function api(path){const r=await fetch(API+path,{headers:{Accept:'application/json'},cache:'no-store'});const d=await r.json().catch(()=>({}));if(!r.ok||d.error)throw Error(d.error||'HTTP '+r.status);return d}
 function status(s){$('status').textContent=s}
 function unique(items){const seen=new Set();return items.filter(t=>{const k=t.source+':'+t.id;if(seen.has(k))return false;seen.add(k);return true})}
 function renderList(target,items){if(!items.length){$(target).innerHTML='<div class="empty">Ничего не найдено. Попробуй другой запрос.</div>';return}
-$(target).innerHTML=items.map((t,i)=>'<div class="track"><img class="cover" src="'+esc(t.artwork||placeholder)+'" onerror="this.src=\''+placeholder+'\'" alt=""><div class="track-meta"><div class="track-name">'+esc(t.title)+'</div><div class="track-artist">'+esc(t.artist)+'</div><div class="source">'+esc(t.source)+(t.source==='Audius'?' · полное воспроизведение':' · открыть источник')+'</div></div><button class="round play" data-play="'+i+'" aria-label="Воспроизвести">▶</button><button class="round" data-save="'+i+'" aria-label="Сохранить">'+(library.some(x=>x.id===t.id&&x.source===t.source)?'✓':'＋')+'</button></div>').join('');
+$(target).innerHTML=items.map((t,i)=>'<div class="track"><img class="cover" src="'+esc(t.artwork||placeholder)+'" onerror="this.src=\''+placeholder+'\'" alt=""><div class="track-meta"><div class="track-name">'+esc(t.title)+'</div><div class="track-artist">'+esc(t.artist)+'</div><div class="source">'+esc(t.source)+(t.source==='Audius'?' · полное воспроизведение':t.streamUrl?' · превью':' · открыть источник')+'</div></div><button class="round play" data-play="'+i+'" aria-label="Воспроизвести">▶</button><button class="round" data-save="'+i+'" aria-label="Сохранить">'+(library.some(x=>x.id===t.id&&x.source===t.source)?'✓':'＋')+'</button></div>').join('');
 $(target).querySelectorAll('[data-play]').forEach(b=>b.onclick=()=>play(items[Number(b.dataset.play)]));
 $(target).querySelectorAll('[data-save]').forEach(b=>b.onclick=()=>save(items[Number(b.dataset.save)]));
 }
@@ -67,9 +67,23 @@ $('library').querySelectorAll('[data-libplay]').forEach(b=>b.onclick=()=>play(li
 function persist(){localStorage.setItem('rh_music_library',JSON.stringify(library));renderLibrary();renderList('tracks',visible)}
 function save(t){if(library.some(x=>x.id===t.id&&x.source===t.source)){toast('Уже сохранено');return}library.unshift(t);persist();toast('Добавлено в медиатеку')}
 function openSource(t){const url=t.permalink||('https://music.yandex.ru/search?text='+encodeURIComponent(t.title+' '+t.artist));window.open(url,'_blank','noopener,noreferrer')}
-async function play(t){if(t.source!=='Audius'){openSource(t);toast('Этот источник открывает оригинальный сервис');return}
-current=visible.findIndex(x=>x.id===t.id&&x.source===t.source);$('playerTitle').textContent=t.title;$('playerArtist').textContent=t.artist+' · Audius';$('playerCover').src=t.artwork||placeholder;$('expandTitle').textContent=t.title;$('expandArtist').textContent=t.artist+' · Audius';$('expandCover').src=t.artwork||placeholder;
-try{audio.src=t.streamUrl||API+'/api/stream?id='+encodeURIComponent(t.id);audio.load();await audio.play();$('toggle').textContent='Ⅱ';$('expandToggle').textContent='Ⅱ';status('Сейчас играет: '+t.title)}catch(e){toast('Поток сейчас недоступен');status('Не удалось запустить поток Audius. Попробуй другой трек.')}}
+async function play(t){
+const isAudius=t.source==='Audius',hasPreview=!!t.streamUrl;
+if(!isAudius&&!hasPreview){openSource(t);toast('Открываем каталог источника');return}
+current=visible.findIndex(x=>x.id===t.id&&x.source===t.source);
+const sourceLabel=t.previewOnly?' · превью':' · '+t.source;
+$('playerTitle').textContent=t.title;$('playerArtist').textContent=t.artist+sourceLabel;$('playerCover').src=t.artwork||placeholder;
+$('expandTitle').textContent=t.title;$('expandArtist').textContent=t.artist+sourceLabel;$('expandCover').src=t.artwork||placeholder;
+try{
+audio.src=isAudius?API+'/api/stream?id='+encodeURIComponent(t.id):t.streamUrl;
+audio.load();await audio.play();
+$('toggle').textContent='Ⅱ';$('expandToggle').textContent='Ⅱ';
+status(t.previewOnly?'Воспроизводится официальное превью: '+t.title:'Сейчас играет: '+t.title);
+}catch(e){
+toast('Не удалось запустить аудио. Открываем источник.');
+status('Поток временно недоступен.');
+if(t.permalink)openSource(t);
+}}
 function updateMoreButtons(){
 const show=hasMore||pending.length>0;
 ['moreTracks','moreSearchTracks'].forEach(id=>{const b=$(id);if(b){b.hidden=!show;b.textContent=busy?'Загружаем…':'Показать ещё'}})
