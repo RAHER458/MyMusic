@@ -61,3 +61,5 @@
 @media(max-width:700px){.dm-layout{grid-template-columns:1fr}.dm-sidebar{max-height:245px;overflow:auto}.dm-conversation{min-height:420px}.dm-thread{padding:9px}.notice-toolbar{flex-wrap:wrap}.notice-toolbar span{width:100%}}
 
 .feed-create{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:15px 17px;margin:0 0 14px;background:#202334;border:1px solid #343a5c;border-radius:13px}.feed-create div{display:flex;flex-direction:column;gap:4px}.feed-create b{font-size:13px;color:#f2f3ff}.feed-create small{font-size:11px;color:#9a9db4}.feed-create button{white-space:nowrap}@media(max-width:520px){.feed-create{align-items:flex-start;flex-direction:column}.feed-create button{width:100%}}
+
+.feed-create-link,.publish-link{display:inline-flex;align-items:center;justify-content:center;text-decoration:none;cursor:pointer}.feed-create-link{padding:10px 15px;border-radius:9px}.publish-link{padding:12px 14px;border-radius:10px}
