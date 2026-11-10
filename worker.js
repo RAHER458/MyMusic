@@ -12,7 +12,7 @@ async function session(req,env){const h=req.headers.get("Authorization")||"",tok
 async function issueSession(env,userId){const token=hex(bytes(32)),now=new Date().toISOString();await env.DB.prepare("INSERT INTO sessions(token_hash,user_id,expires_at,created_at) VALUES(?,?,?,?)").bind(await digest(token),userId,Date.now()+SESSION_DAYS*86400000,now).run();return token}
 export default{async fetch(req,env){
  const origin=req.headers.get("Origin")||"";
- if(origin!==ALLOWED_ORIGIN)return new Response("Origin not allowed",{status:403});
+ if(origin && origin!==ALLOWED_ORIGIN)return new Response("Origin not allowed",{status:403});
  if(req.method==="OPTIONS")return new Response(null,{status:204,headers:{"Access-Control-Allow-Origin":ALLOWED_ORIGIN,"Access-Control-Allow-Methods":"GET, POST, OPTIONS","Access-Control-Allow-Headers":"Content-Type, Authorization","Access-Control-Max-Age":"86400","Vary":"Origin"}});
  const path=new URL(req.url).pathname.replace(/\/$/,"");
  if(path==="/"||path==="/api")return json({service:"RH Social Auth API",status:"online"});
