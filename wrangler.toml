@@ -1,0 +1,9 @@
+name = "rh-social-auth"
+main = "worker.js"
+compatibility_date = "2026-11-11"
+workers_dev = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "rh-social-db"
+database_id = "e448ed83-2a88-4e4e-9009-86af5fffc598"
