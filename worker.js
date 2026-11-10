@@ -130,7 +130,7 @@ async function searchYandex(query, token) {
     let artwork = album.coverUri || track.coverUri || "";
     if (artwork) {
       artwork = artwork.replace("%%", "400x400");
-      if (!/^https?:\\/\\//i.test(artwork)) artwork = "https://" + artwork;
+      if (!/^https?:\/\//i.test(artwork)) artwork = "https://" + artwork;
     }
 
     return {
@@ -412,7 +412,7 @@ export default {
         return json({ error: "Укажи поисковый запрос длиной до 160 символов." }, 400);
       }
 
-      const token = (request.headers.get("authorization") || "").replace(/^OAuth\\s+/i, "").trim();
+      const token = (request.headers.get("authorization") || "").replace(/^OAuth\s+/i, "").trim();
       try {
         const tracks = await searchYandex(query, token);
         return json({
