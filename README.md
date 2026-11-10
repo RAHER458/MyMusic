@@ -1,11 +1,14 @@
 # RH Social
 
-A new social publishing platform for images, video, and audio.
+Адаптивная статическая оболочка социальной платформы RH Social.
 
-## Stack
-- Cloudflare Pages Functions
-- Cloudflare D1 (structured data)
-- External media storage/CDN (no Cloudflare R2)
-- React + TypeScript + Vite
+## Сейчас
+- UI-концепт ленты, навигации, историй и карточек публикаций.
+- Адаптация под мобильные устройства и десктоп.
+- Демонстрационные публикации и локальные интерактивные состояния.
 
-The previous application source was intentionally replaced to begin the RH Social rebuild.
+## Пока не реализовано
+Авторизация, профили пользователей, серверная логика, API, админ-панель, загрузка и хранение медиа, база данных.
+
+## Публикация
+Статический сайт. Для GitHub Pages выберите Deploy from a branch → main → /(root).
