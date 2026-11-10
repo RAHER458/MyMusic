@@ -103,6 +103,50 @@ function mapAudius(track) {
   };
 }
 
+
+async function searchYandex(query, token) {
+  const url = new URL("https://api.music.yandex.net/search");
+  url.searchParams.set("text", query);
+  url.searchParams.set("type", "track");
+  url.searchParams.set("page", "0");
+  url.searchParams.set("nocorrect", "false");
+
+  const headers = { accept: "application/json" };
+  if (token) headers.authorization = "OAuth " + token;
+
+  const response = await fetch(url.toString(), {
+    headers,
+    signal: AbortSignal.timeout(10000)
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || data.error) {
+    throw new Error(data.error?.message || "Yandex Music HTTP " + response.status);
+  }
+
+  const results = data.result?.tracks?.results || [];
+  return results.slice(0, 25).map(track => {
+    const album = track.albums?.[0] || {};
+    let artwork = album.coverUri || track.coverUri || "";
+    if (artwork) {
+      artwork = artwork.replace("%%", "400x400");
+      if (!/^https?:\\/\\//i.test(artwork)) artwork = "https://" + artwork;
+    }
+
+    return {
+      id: "ym_" + String(track.id),
+      yandexId: String(track.id),
+      title: track.title || "Без названия",
+      artist: (track.artists || []).map(a => a.name).filter(Boolean).join(", ") || "Неизвестный исполнитель",
+      artwork,
+      duration: Math.round((Number(track.durationMs) || 0) / 1000),
+      source: "Яндекс Музыка",
+      permalink: "https://music.yandex.ru/album/" + String(album.id || "") + "/track/" + String(track.id),
+      streamUrl: ""
+    };
+  });
+}
+
 function getVideoId(item) {
   if (item.videoId) {
     return String(item.videoId);
@@ -359,6 +403,26 @@ export default {
           "YouTube Music via Piped"
         ]
       });
+    }
+
+
+    if (url.pathname === "/api/yandex/search") {
+      const query = (url.searchParams.get("q") || "").trim();
+      if (!query || query.length > 160) {
+        return json({ error: "Укажи поисковый запрос длиной до 160 символов." }, 400);
+      }
+
+      const token = (request.headers.get("authorization") || "").replace(/^OAuth\\s+/i, "").trim();
+      try {
+        const tracks = await searchYandex(query, token);
+        return json({
+          tracks,
+          sources: ["Яндекс Музыка"],
+          note: token ? "Поиск выполнен с авторизацией Яндекса." : "Поиск без авторизации. Для полного доступа потребуется токен аккаунта."
+        });
+      } catch (error) {
+        return json({ error: "Яндекс Музыка: " + (error?.message || "ошибка запроса") }, 502);
+      }
     }
 
     if (url.pathname === "/api/search") {
