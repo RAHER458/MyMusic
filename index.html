@@ -113,7 +113,24 @@ button:focus-visible, input:focus-visible {
 
 .primary:disabled { opacity: .6; cursor: wait; }
 
-.status {
+
+.yandex-auth {
+  display: flex;
+  gap: 9px;
+  max-width: 760px;
+  margin-top: 10px;
+}
+.yandex-auth input {
+  min-width: 0;
+  flex: 1;
+  border: 1px solid #ffffff18;
+  border-radius: 12px;
+  background: #080a12;
+  color: var(--text);
+  padding: 11px 14px;
+}
+.auth-note { color: var(--muted); font-size: 11px; margin: 6px 2px 0; }
+\n.status {
   color: var(--muted);
   font-size: 13px;
   min-height: 22px;
@@ -344,7 +361,7 @@ button:focus-visible, input:focus-visible {
       <button id="searchBtn" class="primary" type="submit">Найти музыку</button>
     </form>
 
-    <div id="status" class="status" role="status">Подключение к музыкальному каталогу…</div>
+    <div class="yandex-auth"><input id="yandexToken" type="password" autocomplete="off" placeholder="OAuth-токен Яндекс Музыки (необязательно)"></div><div class="auth-note">Токен передаётся только вашему Worker и не сохраняется на сервере. Без токена поиск доступен, но полный доступ к каталогу ограничен.</div><div id="status" class="status" role="status">Подключение к музыкальному каталогу…</div>
   </section>
 
   <div class="layout">
@@ -532,11 +549,11 @@ button:focus-visible, input:focus-visible {
 
     $('searchBtn').disabled = true;
     $('searchBtn').textContent = 'Ищем…';
-    setStatus('Ищем в каталоге Audius…');
+    state.yandexToken = $('yandexToken').value.trim();\n    setStatus('Ищем в каталоге Яндекс Музыки…');
     $('results').innerHTML = '<div class="empty">Ищем композиции…</div>';
 
     try {
-      const data = await api('/api/search?q=' + encodeURIComponent(query));
+      const data = await api('/api/yandex/search?q=' + encodeURIComponent(query), state.yandexToken);
 
       state.tracks = (data.tracks || []).map(normalize);
       state.currentIndex = -1;
@@ -547,7 +564,7 @@ button:focus-visible, input:focus-visible {
       renderResults();
 
       if (state.tracks.length) {
-        setStatus('Найдено ' + state.tracks.length + ' треков в Audius.');
+        setStatus('Яндекс Музыка: найдено ' + state.tracks.length + ' треков.');
       } else {
         setStatus('Ничего не найдено. Попробуй другое название.');
       }
