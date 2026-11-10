@@ -7,3 +7,7 @@ workers_dev = true
 binding = "DB"
 database_name = "rh-social-db"
 database_id = "e448ed83-2a88-4e4e-9009-86af5fffc598"
+
+[[r2_buckets]]
+binding = "MEDIA"
+bucket_name = "rh-media-uploads"
