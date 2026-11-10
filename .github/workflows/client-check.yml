@@ -1,0 +1,28 @@
+name: Client syntax check
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "app.js"
+      - ".github/workflows/client-check.yml"
+  pull_request:
+    paths:
+      - "app.js"
+      - ".github/workflows/client-check.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check JavaScript syntax
+        run: node --check app.js
