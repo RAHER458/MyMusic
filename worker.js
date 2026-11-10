@@ -65,5 +65,5 @@ export default{async fetch(req,env){
   }
   if(req.method==="POST"&&path==="/api/logout"){const h=req.headers.get("Authorization")||"",token=h.startsWith("Bearer ")?h.slice(7):"";if(token)await env.DB.prepare("DELETE FROM sessions WHERE token_hash=?").bind(await digest(token)).run();return json({ok:true})}
   return json({error:"Not found"},404)
- }catch(e){return json({error:"Внутренняя ошибка сервера."},500)}
+ }catch(e){console.error("RH Social Worker error:",e?.stack||e?.message||String(e));return json({error:"Внутренняя ошибка сервера."},500)}
 }};
