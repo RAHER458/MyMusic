@@ -52,3 +52,6 @@
 /* Post owner controls */
 .post-owner-actions{display:flex;align-items:center;gap:5px;margin-left:auto}.post-owner-actions button{font-size:10px;padding:6px 8px;border-radius:8px}.post-owner-actions .post-delete{color:#ff7b88}.post-owner-actions .post-delete:hover{background:rgba(255,90,110,.12)}
 @media(max-width:480px){.post-owner-actions{gap:2px}.post-owner-actions button{font-size:9px;padding:6px 5px}.post-head{gap:7px}}
+
+/* Comment owner controls */
+.comment-owner-actions{display:flex;gap:8px;margin-top:7px}.comment-owner-actions button{font-size:10px;padding:4px 7px}.comment-owner-actions .post-delete{color:#ff7b88}
