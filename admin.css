@@ -40,3 +40,17 @@
 @media(max-width:420px){.rh-admin-stats{gap:7px}.rh-admin-stat{padding:11px}.rh-admin-period button{padding:7px}.rh-admin-chart-head{align-items:flex-start;flex-direction:column}.rh-admin-pagination{align-items:flex-start;flex-direction:column}}
 
 .rh-admin-chart-legend{display:flex;gap:18px;flex-wrap:wrap;margin-top:8px;font-size:10px;color:var(--ra-muted)}.rh-admin-chart-legend span{display:flex;align-items:center;gap:6px}.rh-admin-chart-legend i{display:inline-block;width:8px;height:8px;border-radius:50%;background:#9b8cff}.rh-admin-chart-legend i.comments{background:#35c79a}.rh-admin-chart-labels{display:flex;justify-content:space-between;gap:3px;overflow:hidden;margin-top:7px;color:var(--ra-muted);font-size:clamp(7px,1vw,9px);white-space:nowrap}
+
+/* RH Control Center — role labels and owner administration */
+.rh-role-badge{display:inline-flex;align-items:center;vertical-align:middle;margin-left:7px;padding:3px 7px;border-radius:6px;font:800 9px/1.2 system-ui,sans-serif;letter-spacing:.7px;white-space:nowrap}
+.rh-role-owner{background:#3a151b;color:#ff5a68;border:1px solid #a83242;box-shadow:0 0 12px #ff344322}
+.rh-role-admin{background:#332515;color:#ffc46b;border:1px solid #8b5d25}
+.rh-role-moderator{background:#142c43;color:#69bfff;border:1px solid #285d88}
+.rh-admin-actions{display:flex;gap:5px;flex-wrap:wrap}
+.rh-admin-actions button,.rh-admin-table button{min-height:34px;border:1px solid var(--ra-line);border-radius:8px;background:var(--ra-panel2);color:var(--ra-text);padding:6px 9px;font-size:10px;cursor:pointer}
+.rh-admin-actions button.danger,.rh-admin-table button.danger{color:#ff8490;border-color:#87404a}
+.rh-admin-actions button:disabled,.rh-admin-table button:disabled{opacity:.35;cursor:not-allowed}
+.rh-admin-settings input[type=color]{width:100%;height:44px;min-height:44px;padding:4px;cursor:pointer}
+.rh-admin-rail{min-width:0}
+.rh-admin-navitem{touch-action:manipulation}
+@media(max-width:700px){.rh-admin-actions{min-width:180px}.rh-role-badge{font-size:8px;padding:2px 5px}}
