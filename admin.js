@@ -141,7 +141,7 @@ function start(){
  document.addEventListener("change",e=>{if($("rhAdminMain")&&$("rhAdminMain").contains(e.target))onChange(e)});
  document.addEventListener("submit",e=>{if($("rhAdminMain")&&$("rhAdminMain").contains(e.target))onSubmit(e)});
  window.addEventListener("hashchange",()=>setTimeout(render,0));
- document.addEventListener("rh-social-ready",()=>{if(location.hash.replace(/^#\\/?/,"").split("/")[0]==="admin")refresh()});
+ document.addEventListener("rh-social-ready",()=>{if(location.hash.replace(/^#\/?/,"").split("/")[0]==="admin")refresh()});
  const observer=new MutationObserver(()=>{const link=$("rhAdminNav");if(link)link.hidden=!isAdmin()});
  if($("topActions"))observer.observe($("topActions"),{childList:true,subtree:true});
  render();
