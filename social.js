@@ -122,15 +122,21 @@ function installStorageMirror(){
  }catch(e){}
 }
 async function mirrorLegacy(key,raw){
- try{const data=JSON.parse(raw),db=await openDB(),store=key==="rh_local_users"?"users":"posts",tx=db.transaction(store,"readwrite"),os=tx.objectStore(store);
- if(store==="users")Object.values(data||{}).forEach(u=>{if(u?.username)os.put({...u,id:String(u.username).toLowerCase()})});
- else if(Array.isArray(data))data.forEach(p=>{if(p?.id!=null)os.put(p)});
+ try{
+  const data=JSON.parse(raw),db=await openDB(),store=key==="rh_local_users"?"users":"posts",tx=db.transaction(store,"readwrite"),os=tx.objectStore(store);
+  os.clear();
+  if(store==="users")Object.values(data||{}).forEach(u=>{if(u?.username)os.put({...u,id:String(u.username).toLowerCase()})});
+  else if(Array.isArray(data))data.forEach(p=>{if(p?.id!=null)os.put(p)});
+  await new Promise((resolve,reject)=>{tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)});
+  await mirrorMedia();
  }catch(e){/* Старый клиентский сценарий продолжает работать даже если зеркало не удалось обновить. */}
 }
 async function mirrorMedia(){
- try{const ps=await all("posts"),us=await all("users"),db=await openDB(),tx=db.transaction("media","readwrite"),os=tx.objectStore("media");
- ps.forEach(p=>(Array.isArray(p.media)?p.media:[]).forEach((m,i)=>os.put({id:"post:"+p.id+":"+i,postId:String(p.id),kind:"post",...m})));
- us.forEach(u=>{if(u.avatar)os.put({id:"avatar:"+u.id,owner:u.id,kind:"avatar",url:u.avatar,mime:"image/*"})});
+ try{
+  const ps=await all("posts"),us=await all("users"),db=await openDB(),tx=db.transaction("media","readwrite"),os=tx.objectStore("media");
+  os.clear();
+  ps.forEach(p=>(Array.isArray(p.media)?p.media:[]).forEach((m,i)=>os.put({id:"post:"+p.id+":"+i,postId:String(p.id),kind:"post",...m})));
+  us.forEach(u=>{if(u.avatar)os.put({id:"avatar:"+u.id,owner:u.id,kind:"avatar",url:u.avatar,mime:"image/*"})});
  }catch(e){}
 }
 function watchFeed(){const root=$("pageContent");if(!root)return;new MutationObserver(()=>refreshVisible()).observe(root,{childList:true,subtree:true})}
@@ -140,6 +146,7 @@ async function init(){
  document.addEventListener("change",e=>{if(e.target.id==="rhSocialSort"){ui.sort=e.target.value;renderComments()}});
 }
 async function moderateComment(id,status){const list=await all("comments"),item=list.find(c=>c.id===id);if(!item)throw Error("Комментарий не найден");item.status=status;item.moderated_at=new Date().toISOString();item.moderated_by="admin";if(status==="deleted"){item.deleted=true;item.body=""}await put("comments",item);await refreshCache();return item}
-window.RHSocial={openDB,refreshCache,listComments:()=>all("comments"),listReactions:()=>all("reactions"),listMedia:()=>all("media"),moderateComment,get commentsCache(){return cache.comments},get ready(){return cache.ready}};
+async function removeMediaRecord(id){await remove("media",id);return true}
+window.RHSocial={openDB,refreshCache,listComments:()=>all("comments"),listReactions:()=>all("reactions"),listMedia:()=>all("media"),removeMediaRecord,moderateComment,get commentsCache(){return cache.comments},get ready(){return cache.ready}};
 if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",init,{once:true});else init();
 })();
