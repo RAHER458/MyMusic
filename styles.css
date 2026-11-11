@@ -179,3 +179,21 @@ button,.primary,.secondary,.quiet,.icon-button,.action-btn,.chip{min-height:44px
 
 /* Fallback for browsers without overflow:clip */
 html,body{overflow-x:hidden}
+
+
+/* Mobile acceptance: preserve a 44px touch area and prevent page-level overflow at 320px */
+@media(max-width:760px){
+ html,body{max-width:100%;overflow-x:hidden}
+ .app-shell,.main-area,.page-container,.rh-admin-shell,.rh-admin-main,.rh-admin-card,.rh-admin-tablewrap{min-width:0;max-width:100%}
+ button,.side-nav a,.app-link{min-height:44px}
+ input,select{min-height:44px;max-width:100%}
+ img,video,iframe{max-width:100%}
+ .rh-admin-tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+ .rh-social-compose .primary{min-height:44px}
+}
+@media(max-width:360px){
+ .topbar{gap:6px;padding-left:8px;padding-right:8px}
+ .page-container{width:calc(100% - 16px)}
+ .rh-admin-navitem{min-height:54px}
+ .rh-admin-navitem b{font-size:8px}
+}
