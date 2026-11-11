@@ -22,7 +22,9 @@ function ensureNav(){
  const nav=document.querySelector(".side-nav");if(!nav||$("rhAdminNav"))return;
  const a=document.createElement("a");a.id="rhAdminNav";a.href="#/admin";a.dataset.route="admin";a.innerHTML="⚙ Администрирование";a.hidden=!isAdmin();nav.appendChild(a);
 }
+function applySiteSettings(){const s=settings();document.title=(s.siteName||"RH Media")+" — сообщество";const meta=document.querySelector('meta[name="description"]');if(meta)meta.content=s.description||"Медиаплатформа RH Media"}
 function render(){
+ applySiteSettings();
  ensureNav();
  const link=$("rhAdminNav");if(link)link.hidden=!isAdmin();
  if(location.hash.replace(/^#\/?/,"").split("/")[0]!=="admin")return;
@@ -43,7 +45,7 @@ function activity(days){
 }
 function dashboard(){
  const p=posts(),legacyComments=Object.values(comments()).flat().filter(x=>x&&typeof x==="object"),indexedComments=window.RHSocial?.commentsCache?Object.values(window.RHSocial.commentsCache).flat():[],c=indexedComments.length?indexedComments:legacyComments,u=Object.values(users()),l=read(KEYS.likes,{});
- const likes=Object.values(l).reduce((n,x)=>n+(Array.isArray(x)?x.length:(x&&Array.isArray(x.users)?x.users.length:0)),0);
+ const indexedReactions=window.RHSocial?.reactionsCache,likes=indexedReactions?indexedReactions.filter(x=>x.targetType==="post").length:Object.values(l).reduce((n,x)=>n+(Array.isArray(x)?x.length:(x&&Array.isArray(x.users)?x.users.length:0)),0);
  return '<div class="rh-admin-stats">'+stat("Публикации",p.length,"▤","В локальной ленте")+stat("Комментарии",c.filter(x=>x.status!=="deleted").length,"▧","Во всех обсуждениях")+stat("Реакции",likes,"♥","Реакции публикаций")+stat("Пользователи",u.length,"♙","Локальные аккаунты")+'</div><article class="rh-admin-card">'+activity(state.period)+'</article><div class="rh-admin-two"><article class="rh-admin-card"><h3>Последние публикации</h3>'+((p.slice().sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).slice(0,5).map(x=>'<div class="rh-admin-minirow"><span class="rh-admin-avatar">'+esc((x.user?.display_name||x.user?.username||"У").slice(0,1).toUpperCase())+'</span><div><b>'+esc(x.user?.display_name||x.user?.username||"Участник")+'</b><small>'+esc((x.caption||"Без текста").slice(0,70))+'</small></div><time>'+stamp(x.created_at)+'</time></div>').join(""))||'<p class="rh-admin-empty">Публикаций пока нет.</p>')+'</article><article class="rh-admin-card"><h3>Состояние пространства</h3><div class="rh-admin-settingline"><span>Регистрация</span><b>'+(settings().registrationOpen?"Открыта":"Закрыта")+'</b></div><div class="rh-admin-settingline"><span>Комментарии</span><b>'+(settings().commentsEnabled?"Включены":"Выключены")+'</b></div><div class="rh-admin-settingline"><span>Лимит загрузки</span><b>'+settings().uploadLimit+' МБ</b></div><p class="rh-admin-note">Показатели относятся к данным этого браузера. Между посетителями они не синхронизируются.</p></article></div>';
 }
 function postRows(){
@@ -129,7 +131,7 @@ function onChange(e){
  if(e.target.hasAttribute("data-admin-select-all")){document.querySelectorAll("[data-admin-select]").forEach(x=>{x.checked=e.target.checked;const id=String(x.dataset.adminSelect);if(e.target.checked)state.selected.add(id);else state.selected.delete(id)});refresh()}
  if(e.target.hasAttribute("data-admin-role")){if(!isAdmin())return;const us=users(),u=us[e.target.dataset.adminRole.toLowerCase()];if(!u||u.username.toLowerCase()==="raher")return;u.role=e.target.value;if(write(KEYS.users,us)){refresh();notify("Роль пользователя изменена")}}
 }
-function onSubmit(e){if(e.target.id!=="rhAdminSettings")return;e.preventDefault();if(!isAdmin())return;const f=new FormData(e.target),s={siteName:String(f.get("siteName")||"RH Media").trim(),description:String(f.get("description")||"").trim(),uploadLimit:Math.max(1,Math.min(100,Number(f.get("uploadLimit")||10))),registrationOpen:e.target.elements.registrationOpen.checked,commentsEnabled:e.target.elements.commentsEnabled.checked};if(write(KEYS.settings,s)){refresh();notify("Настройки сохранены")}}
+function onSubmit(e){if(e.target.id!=="rhAdminSettings")return;e.preventDefault();if(!isAdmin())return;const f=new FormData(e.target),s={siteName:String(f.get("siteName")||"RH Media").trim(),description:String(f.get("description")||"").trim(),uploadLimit:Math.max(1,Math.min(100,Number(f.get("uploadLimit")||10))),registrationOpen:e.target.elements.registrationOpen.checked,commentsEnabled:e.target.elements.commentsEnabled.checked};if(write(KEYS.settings,s)){applySiteSettings();refresh();notify("Настройки сохранены")}}
 function start(){
  ensureNav();
  document.addEventListener("click",e=>{
