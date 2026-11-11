@@ -4,6 +4,7 @@
 const DB_NAME="rh_media_social",DB_VERSION=1,STORES=["users","posts","comments","reactions","media"];
 const $=id=>document.getElementById(id);
 const cache={comments:{},reactions:[],ready:false};
+const basePostCounts=new Map();
 const ui={postId:null,sort:"new",replyTo:null,editing:null,collapsed:new Set()};
 const EMOJI=["❤️","😂","🔥","👍","😮"];
 const esc=v=>String(v==null?"":v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -51,11 +52,12 @@ async function refreshCache(){
  refreshVisible();
 }
 function activeComments(postId){return (cache.comments[String(postId)]||[]).filter(c=>!c.deleted&&c.status!=="deleted"&&(c.status==="approved"||!c.status))}
-function countPostReactions(postId){return cache.reactions.filter(r=>r.targetType==="post"&&String(r.targetId)===String(postId)).length}
+function legacyLikeCount(postId){const legacy=parse("rh_demo_likes",{}),entry=legacy?.[postId];return Array.isArray(entry)?new Set(entry.map(x=>String(x).toLowerCase())).size:entry&&Array.isArray(entry.users)?new Set(entry.users.map(x=>String(x).toLowerCase())).size:0}
+function countPostReactions(postId){return (basePostCounts.get(String(postId))||0)+cache.reactions.filter(r=>r.targetType==="post"&&String(r.targetId)===String(postId)).length}
 function hasPostReaction(postId){return cache.reactions.some(r=>r.targetType==="post"&&String(r.targetId)===String(postId)&&r.userId===userId())}
 function refreshVisible(){
  if(!cache.ready)return;
- document.querySelectorAll('[data-action="like"][data-id]').forEach(b=>{const id=b.dataset.id,count=countPostReactions(id);b.innerHTML=(hasPostReaction(id)?"♥ ":"♡ ")+count;b.classList.toggle("liked",hasPostReaction(id))});
+ document.querySelectorAll('[data-action="like"][data-id]').forEach(b=>{const id=String(b.dataset.id);if(!basePostCounts.has(id)){const displayed=Number((b.textContent.match(/\\d+/)||["0"])[0]);basePostCounts.set(id,Math.max(0,displayed-legacyLikeCount(id)))}const count=countPostReactions(id);b.innerHTML=(hasPostReaction(id)?"♥ ":"♡ ")+count;b.classList.toggle("liked",hasPostReaction(id))});
  document.querySelectorAll('[data-action="comments"][data-id]').forEach(b=>{const id=b.dataset.id;b.innerHTML="▤ "+activeComments(id).length});
 }
 function modalShell(){
@@ -89,7 +91,16 @@ async function openComments(postId){
 }
 async function togglePostLike(postId){
  if(!userId()){toast("Войди, чтобы поставить реакцию");return}
- try{const id="post:"+postId+":"+userId(),existing=cache.reactions.find(r=>r.id===id);if(existing)await remove("reactions",id);else await put("reactions",{id,targetType:"post",targetId:String(postId),userId:userId(),emoji:"❤️",created_at:new Date().toISOString()});await refreshCache();const b=document.querySelector('[data-action="like"][data-id="'+CSS.escape(String(postId))+'"]');if(b){b.classList.remove("rh-reaction-pop");void b.offsetWidth;b.classList.add("rh-reaction-pop")} }catch(e){toast("Не удалось сохранить реакцию. Проверь свободное место в браузере.")}
+ try{const id="post:"+postId+":"+userId(),existing=cache.reactions.find(r=>r.id===id);if(existing)await remove("reactions",id);else{await put("reactions",{id,targetType:"post",targetId:String(postId),userId:userId(),emoji:"❤️",created_at:new Date().toISOString()});await addLikeNotification(postId)}await refreshCache();const b=document.querySelector('[data-action="like"][data-id="'+CSS.escape(String(postId))+'"]');if(b){b.classList.remove("rh-reaction-pop");void b.offsetWidth;b.classList.add("rh-reaction-pop")} }catch(e){toast("Не удалось сохранить реакцию. Проверь свободное место в браузере.")}
+}
+async function addLikeNotification(postId){
+ try{
+  const p=(await all("posts")).find(x=>String(x.id)===String(postId)),author=p?.user?.username;
+  if(!author||author.toLowerCase()===userId())return;
+  const prefs=parse("rh_notification_prefs",{likes:true});if(prefs.likes===false)return;
+  const list=parse("rh_local_notifications",[]);list.unshift({id:"notice-"+Date.now()+"-"+Math.random().toString(36).slice(2,7),username:author,type:"like",text:(currentUser()?.display_name||userId())+" оценил вашу публикацию",actor:userId(),created_at:new Date().toISOString(),read:false});
+  localStorage.setItem("rh_local_notifications",JSON.stringify(list.slice(0,300)));
+ }catch(e){}
 }
 async function addCommentNotification(postId,body){
  try{
