@@ -9,7 +9,7 @@ const write=(key,value)=>{try{localStorage.setItem(key,JSON.stringify(value));re
 const esc=v=>String(v==null?"":v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const session=()=>{const name=localStorage.getItem("rh_local_session")||"",users=read(KEYS.users,{}),user=users[name.toLowerCase()];return user&&user.status!=="banned"?user:null};
 const isSuperAdmin=()=>String(session()?.username||"").toLowerCase()==="raher";
-const rolePermissions={admin:["users.manage","posts.manage","comments.manage","media.manage","settings.manage","videos.manage"],moderator:["comments.manage","videos.manage"]};
+const rolePermissions={admin:["users.manage","posts.manage","comments.manage","media.manage","videos.manage"],moderator:["comments.manage","videos.manage"]};
 const can=permission=>{const u=session();if(!u)return false;if(isSuperAdmin())return true;const grants=Array.isArray(u.permissions)?u.permissions:(rolePermissions[u.role]||[]);return grants.includes(permission)};
 const isAdmin=()=>{const u=session();return !!u&&(isSuperAdmin()||u.role==="admin"||u.role==="moderator"||Array.isArray(u.permissions)&&u.permissions.length>0)};
 const notify=s=>{const t=$("toast");if(t){t.textContent=s;t.classList.add("show");clearTimeout(notify.timer);notify.timer=setTimeout(()=>t.classList.remove("show"),2600)}};
