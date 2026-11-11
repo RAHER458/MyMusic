@@ -143,13 +143,26 @@ function installStorageMirror(){
   wrapped.__rhMirror=true;Storage.prototype.setItem=wrapped;
  }catch(e){}
 }
+async function purgeRemovedPosts(ids){
+ if(!ids.length)return;
+ const removed=new Set(ids.map(String)),[cs,rs]=await Promise.all([all("comments"),all("reactions")]);
+ const commentIds=new Set(cs.filter(c=>removed.has(String(c.postId))).map(c=>c.id));
+ const db=await openDB(),tx=db.transaction(["comments","reactions"],"readwrite"),commentStore=tx.objectStore("comments"),reactionStore=tx.objectStore("reactions");
+ cs.forEach(c=>{if(removed.has(String(c.postId)))commentStore.delete(c.id)});
+ rs.forEach(r=>{if((r.targetType==="post"&&removed.has(String(r.targetId)))||(r.targetType==="comment"&&commentIds.has(r.targetId)))reactionStore.delete(r.id)});
+ await new Promise((resolve,reject)=>{tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)});
+}
 async function mirrorLegacy(key,raw){
  try{
-  const data=JSON.parse(raw),db=await openDB(),store=key==="rh_local_users"?"users":"posts",tx=db.transaction(store,"readwrite"),os=tx.objectStore(store);
+  const data=JSON.parse(raw),db=await openDB(),store=key==="rh_local_users"?"users":"posts";
+  const oldPosts=store==="posts"?await all("posts"):[],nextIds=new Set((Array.isArray(data)?data:[]).map(p=>String(p.id)));
+  const removedIds=oldPosts.filter(p=>!nextIds.has(String(p.id))).map(p=>String(p.id));
+  const tx=db.transaction(store,"readwrite"),os=tx.objectStore(store);
   os.clear();
   if(store==="users")Object.values(data||{}).forEach(u=>{if(u?.username)os.put({...u,id:String(u.username).toLowerCase()})});
   else if(Array.isArray(data))data.forEach(p=>{if(p?.id!=null)os.put(p)});
   await new Promise((resolve,reject)=>{tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)});
+  if(removedIds.length)await purgeRemovedPosts(removedIds);
   await mirrorMedia();
  }catch(e){/* Старый клиентский сценарий продолжает работать даже если зеркало не удалось обновить. */}
 }
