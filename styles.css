@@ -168,3 +168,9 @@ button,.primary,.secondary,.quiet,.icon-button,.action-btn,.chip{min-height:44px
 .rh-social-empty{padding:35px 12px;text-align:center;color:var(--muted)}.rh-social-empty b,.rh-social-empty span{display:block}.rh-social-empty b{color:var(--text);margin-bottom:5px}
 .rh-reaction-pop{animation:rhReactionPop .28s ease}@keyframes rhReactionPop{0%{transform:scale(1)}45%{transform:scale(1.2);color:#ff6b8b}100%{transform:scale(1)}}
 @media(max-width:600px){.rh-social-modal{max-height:calc(100dvh - 16px);padding:14px}.rh-comment{margin-left:calc(var(--depth)*10px);padding:9px}.rh-comment:before{left:-6px}.rh-social-toolbar{align-items:flex-start;flex-direction:column}}
+
+/* Avatar preview before profile save */
+.profile-edit-avatar{display:flex;align-items:center;gap:13px;min-width:0}
+#avatarPreview{width:64px;height:64px;flex:none;border-radius:50%;overflow:hidden}
+#avatarPreview .avatar-preview-image{display:block;width:64px;height:64px;border-radius:50%;object-fit:cover;border:2px solid var(--accent)}
+.profile-edit-avatar small{display:block;max-width:330px;color:var(--muted);font-size:10px;line-height:1.45;margin-top:4px}
