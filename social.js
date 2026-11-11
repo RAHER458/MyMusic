@@ -64,16 +64,17 @@ function modalShell(){
  return root.querySelector(".rh-social-modal");
 }
 function treeFor(postId){
- const list=activeComments(postId),map=new Map(list.map(c=>[c.id,{...c,children:[]} ])),roots=[];
+ const list=(cache.comments[String(postId)]||[]).filter(c=>c.status==="approved"||c.status==="deleted"||!c.status),map=new Map(list.map(c=>[c.id,{...c,children:[]} ])),roots=[];
  map.forEach(c=>{const p=c.parentId&&map.get(c.parentId);if(p&&c.depth<=2)p.children.push(c);else roots.push(c)});
  const sort=(arr)=>{arr.sort((a,b)=>ui.sort==="old"?new Date(a.created_at)-new Date(b.created_at):ui.sort==="popular"?reactionCount(b)-reactionCount(a):new Date(b.created_at)-new Date(a.created_at));arr.forEach(x=>sort(x.children))};sort(roots);return roots;
 }
 function reactionCount(c){return cache.reactions.filter(r=>r.targetType==="comment"&&r.targetId===c.id).length}
 function renderNode(c){
- const collapsed=ui.collapsed.has(c.id),mine=c.username===userId(),editable=mine&&Date.now()-new Date(c.created_at).getTime()<=15*60*1000;
+ const collapsed=ui.collapsed.has(c.id),mine=c.username===userId(),editable=!c.deleted&&c.status!=="deleted"&&mine&&Date.now()-new Date(c.created_at).getTime()<=15*60*1000;
  const reactions=EMOJI.map(em=>{const n=cache.reactions.filter(r=>r.targetType==="comment"&&r.targetId===c.id&&r.emoji===em).length,own=cache.reactions.some(r=>r.targetType==="comment"&&r.targetId===c.id&&r.userId===userId()&&r.emoji===em);return '<button class="rh-emoji-reaction '+(own?"active":"")+'" data-social-emoji="'+esc(em)+'" data-social-comment="'+esc(c.id)+'" aria-label="Реакция '+em+'">'+em+' <small>'+n+'</small></button>'}).join("");
- let body=ui.editing===c.id?'<textarea id="rhSocialEdit">'+esc(c.body)+'</textarea><button data-social-saveedit="'+esc(c.id)+'">Сохранить</button><button data-social-canceledit>Отмена</button>':'<p class="rh-comment-body">'+esc(c.body)+'</p>';
- return '<article class="rh-comment" style="--depth:'+Math.min(c.depth,2)+'"><div class="rh-comment-head"><b>'+esc(c.display_name||c.username)+'</b><small>@'+esc(c.username)+' · '+esc(new Date(c.created_at).toLocaleString("ru-RU"))+(c.updated_at?" · изменено":"")+'</small></div>'+body+'<div class="rh-comment-tools"><button data-social-collapse="'+esc(c.id)+'">'+(collapsed?"Развернуть":"Свернуть ветку")+'</button>'+(c.depth<2?'<button data-social-reply="'+esc(c.id)+'">Ответить</button>':"")+(editable?'<button data-social-edit="'+esc(c.id)+'">Изменить</button>':"")+(mine?'<button data-social-delete="'+esc(c.id)+'">Удалить</button>':"")+'</div><div class="rh-comment-reactions">'+reactions+'</div>'+(collapsed?"":c.children.map(renderNode).join(""))+'</article>';
+ let body=c.deleted||c.status==="deleted"?'<p class="rh-comment-deleted">Комментарий удалён</p>':ui.editing===c.id?'<textarea id="rhSocialEdit">'+esc(c.body)+'</textarea><button data-social-saveedit="'+esc(c.id)+'">Сохранить</button><button data-social-canceledit>Отмена</button>':'<p class="rh-comment-body">'+esc(c.body)+'</p>';
+ const controls=c.deleted||c.status==="deleted"?"":'<div class="rh-comment-tools"><button data-social-collapse="'+esc(c.id)+'">'+(collapsed?"Развернуть":"Свернуть ветку")+'</button>'+(c.depth<2?'<button data-social-reply="'+esc(c.id)+'">Ответить</button>':"")+(editable?'<button data-social-edit="'+esc(c.id)+'">Изменить</button>':"")+(mine?'<button data-social-delete="'+esc(c.id)+'">Удалить</button>':"")+'</div><div class="rh-comment-reactions">'+reactions+'</div>';
+ return '<article class="rh-comment" style="--depth:'+Math.min(c.depth,2)+'"><div class="rh-comment-head"><b>'+esc(c.display_name||c.username)+'</b><small>@'+esc(c.username)+' · '+esc(new Date(c.created_at).toLocaleString("ru-RU"))+(c.updated_at?" · изменено":"")+'</small></div>'+body+controls+(collapsed?"":c.children.map(renderNode).join(""))+'</article>';
 }
 function renderComments(){
  const body=$("rhSocialBody"),compose=$("rhSocialCompose");if(!body||!compose)return;
@@ -90,12 +91,21 @@ async function togglePostLike(postId){
  if(!userId()){toast("Войди, чтобы поставить реакцию");return}
  try{const id="post:"+postId+":"+userId(),existing=cache.reactions.find(r=>r.id===id);if(existing)await remove("reactions",id);else await put("reactions",{id,targetType:"post",targetId:String(postId),userId:userId(),emoji:"❤️",created_at:new Date().toISOString()});await refreshCache();const b=document.querySelector('[data-action="like"][data-id="'+CSS.escape(String(postId))+'"]');if(b){b.classList.remove("rh-reaction-pop");void b.offsetWidth;b.classList.add("rh-reaction-pop")} }catch(e){toast("Не удалось сохранить реакцию. Проверь свободное место в браузере.")}
 }
+async function addCommentNotification(postId,body){
+ try{
+  const p=(await all("posts")).find(x=>String(x.id)===String(postId)),author=p?.user?.username;
+  if(!author||author.toLowerCase()===userId())return;
+  const prefs=parse("rh_notification_prefs",{comments:true});if(prefs.comments===false)return;
+  const list=parse("rh_local_notifications",[]);list.unshift({id:"notice-"+Date.now()+"-"+Math.random().toString(36).slice(2,7),username:author,type:"comment",text:(currentUser()?.display_name||userId())+" прокомментировал вашу публикацию",actor:userId(),created_at:new Date().toISOString(),read:false});
+  localStorage.setItem("rh_local_notifications",JSON.stringify(list.slice(0,300)));
+ }catch(e){}
+}
 async function sendComment(){
  if(!userId()){toast("Войди, чтобы комментировать");return}
  const field=$("rhSocialNew"),body=field?.value.trim();if(!body)return;
  const parent=ui.replyTo?cache.comments[ui.postId]?.find(c=>c.id===ui.replyTo):null,depth=parent?Math.min(2,(parent.depth||0)+1):0;
  const u=currentUser(),id="c-"+Date.now().toString(36)+"-"+Math.random().toString(36).slice(2,8);
- try{await put("comments",{id,postId:ui.postId,parentId:parent?parent.id:null,depth,body,username:userId(),display_name:u.display_name||u.username,created_at:new Date().toISOString(),status:"approved",deleted:false,reactions:{}});ui.replyTo=null;await refreshCache();renderComments()}catch(e){toast("Не удалось сохранить комментарий в IndexedDB")}
+ try{await put("comments",{id,postId:ui.postId,parentId:parent?parent.id:null,depth,body,username:userId(),display_name:u.display_name||u.username,created_at:new Date().toISOString(),status:"approved",deleted:false,reactions:{}});await addCommentNotification(ui.postId,body);ui.replyTo=null;await refreshCache();renderComments()}catch(e){toast("Не удалось сохранить комментарий в IndexedDB")}
 }
 async function handleSocialClick(e){
  const b=e.target.closest("[data-action],[data-social-close],[data-social-send],[data-social-reply],[data-social-edit],[data-social-saveedit],[data-social-canceledit],[data-social-delete],[data-social-emoji],[data-social-collapse],[data-social-cancelreply]");
