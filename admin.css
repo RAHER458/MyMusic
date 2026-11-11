@@ -3,7 +3,7 @@
 #rhAdminNav[hidden]{display:none!important}
 .rh-admin-heading{display:flex;align-items:center;justify-content:space-between;gap:14px;width:100%}
 .rh-admin-theme{min-height:42px;padding:9px 13px;border:1px solid var(--line);border-radius:11px;background:var(--panel);color:var(--text);font-size:12px}
-.rh-admin-shell{--ra-bg:#101522;--ra-panel:#171f30;--ra-panel2:#1d293d;--ra-line:#2b3850;--ra-text:#eef2ff;--ra-muted:#96a2b9;--ra-accent:#8b9cff;display:grid;grid-template-columns:218px minmax(0,1fr);gap:18px;min-width:0;color:var(--ra-text)}
+.rh-admin-shell{--ra-bg:var(--bg,#101522);--ra-panel:var(--panel,#171f30);--ra-panel2:#1d293d;--ra-line:var(--line,#2b3850);--ra-text:var(--text,#eef2ff);--ra-muted:var(--muted,#96a2b9);--ra-accent:var(--accent,#8b9cff);display:grid;grid-template-columns:218px minmax(0,1fr);gap:18px;min-width:0;color:var(--ra-text)}
 .rh-admin-shell.theme-light{--ra-bg:#f4f6fb;--ra-panel:#fff;--ra-panel2:#f0f3fa;--ra-line:#e1e6f0;--ra-text:#20283a;--ra-muted:#68748a;--ra-accent:#5969d8}
 .rh-admin-rail,.rh-admin-card,.rh-admin-stat,.rh-admin-settings{background:var(--ra-panel);border:1px solid var(--ra-line);border-radius:16px;box-shadow:0 8px 28px #0000000c}
 .rh-admin-rail{padding:14px;align-self:start;position:sticky;top:86px;display:flex;flex-direction:column;gap:5px}
