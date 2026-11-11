@@ -112,6 +112,7 @@ async function addCommentNotification(postId,body){
  }catch(e){}
 }
 async function sendComment(){
+ if(parse("rh_admin_settings",{}).commentsEnabled===false){toast("Комментарии временно отключены администратором");return}
  if(!userId()){toast("Войди, чтобы комментировать");return}
  const field=$("rhSocialNew"),body=field?.value.trim();if(!body)return;
  const parent=ui.replyTo?cache.comments[ui.postId]?.find(c=>c.id===ui.replyTo):null,depth=parent?Math.min(2,(parent.depth||0)+1):0;
@@ -168,6 +169,6 @@ async function init(){
 }
 async function moderateComment(id,status){const list=await all("comments"),item=list.find(c=>c.id===id);if(!item)throw Error("Комментарий не найден");item.status=status;item.moderated_at=new Date().toISOString();item.moderated_by="admin";if(status==="deleted"){item.deleted=true;item.body=""}await put("comments",item);await refreshCache();return item}
 async function removeMediaRecord(id){await remove("media",id);return true}
-window.RHSocial={openDB,refreshCache,listComments:()=>all("comments"),listReactions:()=>all("reactions"),listMedia:()=>all("media"),removeMediaRecord,moderateComment,get commentsCache(){return cache.comments},get ready(){return cache.ready}};
+window.RHSocial={openDB,refreshCache,listComments:()=>all("comments"),listReactions:()=>all("reactions"),listMedia:()=>all("media"),removeMediaRecord,moderateComment,get commentsCache(){return cache.comments},get reactionsCache(){return cache.reactions},get ready(){return cache.ready}};
 if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",init,{once:true});else init();
 })();
