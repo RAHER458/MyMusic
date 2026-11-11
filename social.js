@@ -57,7 +57,7 @@ function countPostReactions(postId){return (basePostCounts.get(String(postId))||
 function hasPostReaction(postId){return cache.reactions.some(r=>r.targetType==="post"&&String(r.targetId)===String(postId)&&r.userId===userId())}
 function refreshVisible(){
  if(!cache.ready)return;
- document.querySelectorAll('[data-action="like"][data-id]').forEach(b=>{const id=String(b.dataset.id);if(!basePostCounts.has(id)){const displayed=Number((b.textContent.match(/\\d+/)||["0"])[0]);basePostCounts.set(id,Math.max(0,displayed-legacyLikeCount(id)))}const count=countPostReactions(id);b.innerHTML=(hasPostReaction(id)?"♥ ":"♡ ")+count;b.classList.toggle("liked",hasPostReaction(id))});
+ document.querySelectorAll('[data-action="like"][data-id]').forEach(b=>{const id=String(b.dataset.id);if(!basePostCounts.has(id)){const displayed=Number((b.textContent.match(/[0-9]+/)||["0"])[0]);basePostCounts.set(id,Math.max(0,displayed-legacyLikeCount(id)))}const count=countPostReactions(id);b.innerHTML=(hasPostReaction(id)?"♥ ":"♡ ")+count;b.classList.toggle("liked",hasPostReaction(id))});
  document.querySelectorAll('[data-action="comments"][data-id]').forEach(b=>{const id=b.dataset.id;b.innerHTML="▤ "+activeComments(id).length});
 }
 function modalShell(){
