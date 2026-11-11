@@ -182,6 +182,15 @@ async function init(){
 }
 async function moderateComment(id,status){const list=await all("comments"),item=list.find(c=>c.id===id);if(!item)throw Error("Комментарий не найден");item.status=status;item.moderated_at=new Date().toISOString();item.moderated_by="admin";if(status==="deleted"){item.deleted=true;item.body=""}await put("comments",item);await refreshCache();return item}
 async function removeMediaRecord(id){await remove("media",id);return true}
-window.RHSocial={openDB,refreshCache,listComments:()=>all("comments"),listReactions:()=>all("reactions"),listMedia:()=>all("media"),removeMediaRecord,moderateComment,get commentsCache(){return cache.comments},get reactionsCache(){return cache.reactions},get ready(){return cache.ready}};
+async function deletePostData(postId){
+ const [cs,rs]=await Promise.all([all("comments"),all("reactions")]);
+ const related=cs.filter(c=>String(c.postId)===String(postId)),commentIds=new Set(related.map(c=>c.id));
+ const db=await openDB(),tx=db.transaction(["comments","reactions"],"readwrite"),commentStore=tx.objectStore("comments"),reactionStore=tx.objectStore("reactions");
+ related.forEach(c=>commentStore.delete(c.id));
+ rs.filter(r=>(r.targetType==="post"&&String(r.targetId)===String(postId))||(r.targetType==="comment"&&commentIds.has(r.targetId))).forEach(r=>reactionStore.delete(r.id));
+ await new Promise((resolve,reject)=>{tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error||Error("Удаление связанных данных отменено"))});
+ await refreshCache();return {comments:related.length};
+}
+window.RHSocial={openDB,refreshCache,listComments:()=>all("comments"),listReactions:()=>all("reactions"),listMedia:()=>all("media"),removeMediaRecord,deletePostData,moderateComment,get commentsCache(){return cache.comments},get reactionsCache(){return cache.reactions},get ready(){return cache.ready}};
 if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",init,{once:true});else init();
 })();
