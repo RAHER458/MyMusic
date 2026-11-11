@@ -85,17 +85,32 @@ async function mutateComments(postId,index,status){
  list[index].status=status;list[index].moderated_at=new Date().toISOString();list[index].moderated_by="admin";
  if(write(KEYS.comments,all)){refresh();notify(status==="deleted"?"Комментарий помечен удалённым":"Статус комментария обновлён")}
 }
-function deletePost(id){if(!isAdmin()||!confirm("Удалить публикацию и связанные комментарии и реакции?"))return;
- const list=posts().filter(p=>String(p.id)!==String(id));const c=comments(),l=read(KEYS.likes,{});delete c[id];delete l[id];
+async function cleanupDeletedPosts(ids){
+ if(!window.RHSocial?.deletePostData)return;
+ for(const id of ids)await window.RHSocial.deletePostData(String(id));
+}
+async function deletePost(id){
+ if(!isAdmin()||!confirm("Удалить публикацию и связанные комментарии и реакции?"))return;
+ const list=posts().filter(p=>String(p.id)!==String(id)),c=comments(),l=read(KEYS.likes,{});delete c[id];delete l[id];
  if(!write(KEYS.posts,list)||!write(KEYS.comments,c)||!write(KEYS.likes,l))return;
- state.selected.delete(String(id));refresh();notify("Публикация удалена")}
-function bulk(action){
+ state.selected.delete(String(id));
+ try{await cleanupDeletedPosts([id]);refresh();notify("Публикация и связанные комментарии удалены")}
+ catch(e){refresh();notify("Публикация удалена, но часть старых реакций не удалось очистить")}
+}
+async function bulk(action){
  if(!isAdmin()||!state.selected.size)return;
  const ids=[...state.selected],list=posts(),hiddenIds=hidden();
  if(action==="delete"&&!confirm("Удалить выбранные публикации?"))return;
- if(action==="delete"){const keep=list.filter(p=>!ids.includes(String(p.id)));const c=comments(),l=read(KEYS.likes,{});ids.forEach(id=>{delete c[id];delete l[id]});if(!write(KEYS.posts,keep)||!write(KEYS.comments,c)||!write(KEYS.likes,l))return}
- else{const next=[...new Set([...hiddenIds,...ids])];if(!write(KEYS.hidden,next))return}
- state.selected.clear();refresh();notify(action==="delete"?"Выбранные публикации удалены":"Выбранные публикации скрыты");
+ if(action==="delete"){
+  const keep=list.filter(p=>!ids.includes(String(p.id))),c=comments(),l=read(KEYS.likes,{});
+  ids.forEach(id=>{delete c[id];delete l[id]});
+  if(!write(KEYS.posts,keep)||!write(KEYS.comments,c)||!write(KEYS.likes,l))return;
+  try{await cleanupDeletedPosts(ids);state.selected.clear();refresh();notify("Выбранные публикации и связанные данные удалены")}
+  catch(e){state.selected.clear();refresh();notify("Публикации удалены, но часть связанных данных не удалось очистить")}
+ }else{
+  const next=[...new Set([...hiddenIds,...ids])];if(!write(KEYS.hidden,next))return;
+  state.selected.clear();refresh();notify("Выбранные публикации скрыты")
+ }
 }
 function onClick(e){
  const b=e.target.closest("button,[data-admin-preview]");if(!b)return;
