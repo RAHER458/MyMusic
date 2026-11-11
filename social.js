@@ -50,7 +50,7 @@ async function refreshCache(){
  document.dispatchEvent(new CustomEvent("rh-social-ready"));
  refreshVisible();
 }
-function activeComments(postId){return (cache.comments[String(postId)]||[]).filter(c=>!c.deleted&&c.status!=="deleted")}
+function activeComments(postId){return (cache.comments[String(postId)]||[]).filter(c=>!c.deleted&&c.status!=="deleted"&&(c.status==="approved"||!c.status))}
 function countPostReactions(postId){return cache.reactions.filter(r=>r.targetType==="post"&&String(r.targetId)===String(postId)).length}
 function hasPostReaction(postId){return cache.reactions.some(r=>r.targetType==="post"&&String(r.targetId)===String(postId)&&r.userId===userId())}
 function refreshVisible(){
