@@ -92,7 +92,7 @@ html{min-width:320px;overflow-x:clip}
 body{min-width:320px;overflow-x:clip;-webkit-tap-highlight-color:transparent}
 button,a,input,select,textarea{-webkit-tap-highlight-color:transparent}
 button,a{touch-action:manipulation}
-.sidebar{overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;padding-top:max(22px,env(safe-area-inset-top));padding-bottom:max(16px,env(safe-area-inset-bottom))}
+.sidebar{position:fixed;top:0;bottom:0;height:100vh;height:100dvh;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;scrollbar-gutter:stable;padding-top:max(22px,env(safe-area-inset-top));padding-bottom:max(16px,env(safe-area-inset-bottom))}
 .side-nav a,.app-link,.sidebar-bottom a{min-height:44px;display:flex;align-items:center}
 .main-area,.page-container,#pageContent,.feed-layout,.feed-main{min-width:0;max-width:100%}
 .page-container{padding-left:clamp(0px,1vw,8px);padding-right:clamp(0px,1vw,8px)}
@@ -105,7 +105,7 @@ button,.primary,.secondary,.quiet,.icon-button,.action-btn,.chip{min-height:44px
 .footer{padding-bottom:max(18px,env(safe-area-inset-bottom))}
 .mobile-nav-overlay{display:none}
 @media(max-width:760px){
- .sidebar{z-index:31;inset:0 auto 0 0;height:100dvh;height:100vh;max-height:100dvh;width:min(300px,86vw);padding-left:max(17px,env(safe-area-inset-left));padding-right:17px;transform:translateX(-110%);transition:transform .24s ease;box-shadow:18px 0 55px #0008}
+ .sidebar{z-index:31;inset:0 auto 0 0;height:100vh;height:100dvh;max-height:100dvh;width:min(300px,86vw);padding-left:max(17px,env(safe-area-inset-left));padding-right:17px;transform:translateX(-110%);transition:transform .24s ease;box-shadow:18px 0 55px #0008}
  .sidebar.open{transform:translateX(0)}
  .mobile-nav-overlay:not([hidden]){display:block;position:fixed;inset:0;z-index:30;width:100%;height:100%;border:0;border-radius:0;background:#050914a8;backdrop-filter:blur(3px);padding:0}
  body.mobile-nav-active{overflow:hidden;touch-action:pan-y}
@@ -140,3 +140,11 @@ button,.primary,.secondary,.quiet,.icon-button,.action-btn,.chip{min-height:44px
  .post-owner-actions{flex-wrap:wrap}
 }
 @media(prefers-reduced-motion:reduce){.sidebar,.rh-admin-navitem,.rh-admin-stat{transition:none!important;animation:none!important;scroll-behavior:auto!important}}
+
+/* Fixed desktop sidebar: independent scroll container, content keeps its 248px gutter */
+@media(min-width:761px){
+ .sidebar{position:fixed;inset:0 auto 0 0;height:100vh;height:100dvh;max-height:100dvh;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain}
+ .sidebar .side-nav{flex:0 0 auto}
+ .sidebar .sidebar-bottom{flex:0 0 auto;margin-top:auto}
+ .main-area{margin-left:248px;min-width:0}
+}
