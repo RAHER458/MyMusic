@@ -139,6 +139,7 @@ async function init(){
  document.addEventListener("click",handleSocialClick,true);
  document.addEventListener("change",e=>{if(e.target.id==="rhSocialSort"){ui.sort=e.target.value;renderComments()}});
 }
-window.RHSocial={openDB,refreshCache,listComments:()=>all("comments"),listReactions:()=>all("reactions"),listMedia:()=>all("media"),commentsCache:cache.comments,get ready(){return cache.ready}};
+async function moderateComment(id,status){const list=await all("comments"),item=list.find(c=>c.id===id);if(!item)throw Error("Комментарий не найден");item.status=status;item.moderated_at=new Date().toISOString();item.moderated_by="admin";if(status==="deleted"){item.deleted=true;item.body=""}await put("comments",item);await refreshCache();return item}
+window.RHSocial={openDB,refreshCache,listComments:()=>all("comments"),listReactions:()=>all("reactions"),listMedia:()=>all("media"),moderateComment,get commentsCache(){return cache.comments},get ready(){return cache.ready}};
 if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",init,{once:true});else init();
 })();
