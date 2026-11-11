@@ -176,3 +176,6 @@ button,.primary,.secondary,.quiet,.icon-button,.action-btn,.chip{min-height:44px
 .profile-edit-avatar small{display:block;max-width:330px;color:var(--muted);font-size:10px;line-height:1.45;margin-top:4px}
 
 .rh-comment-deleted{font-size:11px;color:var(--muted);font-style:italic;margin:8px 0}
+
+/* Fallback for browsers without overflow:clip */
+html,body{overflow-x:hidden}
